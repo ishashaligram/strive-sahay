@@ -65,3 +65,6 @@ const assessmentCopy:Record<string,string>={en:'Your score will appear after the
 for(const [language,copy] of Object.entries(assessmentCopy))i18next.addResource(language,'translation','assessmentAfterAnswers',copy);
 
 installPhoneTranslations();
+
+const categoryCopy:Record<string,string>={en:'Selected automatically from your product or service. If unclear, describe what you plan to sell; no category selection is required.',hi:'आपके उत्पाद या सेवा से श्रेणी अपने आप चुनी जाएगी। स्पष्ट न हो तो बताएं कि आप क्या बेचेंगे।',mr:'तुमच्या उत्पादन किंवा सेवेवरून श्रेणी आपोआप निवडली जाईल. स्पष्ट नसल्यास काय विकणार ते सांगा.',te:'మీ ఉత్పత్తి లేదా సేవ ఆధారంగా వర్గం స్వయంచాలకంగా ఎంపిక అవుతుంది. మీరు ఏమి విక్రయిస్తారో వివరించండి.',ta:'உங்கள் தயாரிப்பு அல்லது சேவையிலிருந்து வகை தானாகத் தேர்ந்தெடுக்கப்படும். என்ன விற்கப் போகிறீர்கள் என்று விவரிக்கவும்.',kn:'ನಿಮ್ಮ ಉತ್ಪನ್ನ ಅಥವಾ ಸೇವೆಯಿಂದ ವರ್ಗವನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಆಯ್ಕೆ ಮಾಡಲಾಗುತ್ತದೆ. ಏನು ಮಾರಾಟ ಮಾಡುವಿರಿ ಎಂದು ವಿವರಿಸಿ.',bn:'আপনার পণ্য বা পরিষেবা থেকে বিভাগ নিজে বেছে নেওয়া হবে। কী বিক্রি করবেন তা জানান।'};
+for(const [language,copy] of Object.entries(categoryCopy))i18next.addResource(language,'translation','automaticCategoryNotice',copy);

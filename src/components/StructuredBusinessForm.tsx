@@ -10,7 +10,7 @@ export function StructuredBusinessForm({language,onSubmit,onClose,record}:{langu
  const [schema,setSchema]=useState<{modules:Record<string,readonly string[]>;critical:readonly string[]}>({modules:BUSINESS_MODULES,critical:CRITICAL_FIELDS});
  const [cohorts,setCohorts]=useState<{id:string;name?:string}[]>([]);
  const [values,setValues]=useState<Record<string,FactDraft>>(()=>draftFromRecord(record));
- const [title,setTitle]=useState(record?.title||''),[region,setRegion]=useState(record?.region||''),[trade,setTrade]=useState(record?.trade||''),[cohort,setCohort]=useState(record?.cohortId||'');
+ const [title,setTitle]=useState(record?.title||''),[region,setRegion]=useState(record?.region||''),[cohort,setCohort]=useState(record?.cohortId||'');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[optionsWarning,setOptionsWarning]=useState(false);
  useEffect(()=>{
   let active=true;
@@ -35,7 +35,7 @@ export function StructuredBusinessForm({language,onSubmit,onClose,record}:{langu
   setBusy(true);
   try{
    let result=record;
-   if(!record||Object.keys(changes).length)result=await api<ScreeningRecord>(record?'/submissions/'+encodeURIComponent(record.id)+'/fields':'/pipeline/process-structured',{title:title.trim(),language,region,trade,cohortId:cohort||null,fields:changes});
+   if(!record||Object.keys(changes).length)result=await api<ScreeningRecord>(record?'/submissions/'+encodeURIComponent(record.id)+'/fields':'/pipeline/process-structured',{title:title.trim(),language,region,cohortId:cohort||null,fields:changes});
    if(record&&cleared.length)result=await api<ScreeningRecord>('/submissions/'+encodeURIComponent(record.id)+'/confirm-fields',{fields:[],rejected:cleared});
    if(result)onSubmit(result);onClose();
   }catch(e){setError(t((e as Error).message,{defaultValue:(e as Error).message}));}finally{setBusy(false);}
@@ -46,10 +46,10 @@ export function StructuredBusinessForm({language,onSubmit,onClose,record}:{langu
  <div className="grid sm:grid-cols-2 gap-3">
   <label>{t('Title')}<input autoFocus required disabled={!!record} maxLength={200} className="block border p-2 rounded-xl w-full" value={title} onChange={e=>setTitle(e.target.value)}/></label>
   <label>{t('Region')}<input disabled={!!record} maxLength={200} className="block border p-2 rounded-xl w-full" value={region} onChange={e=>setRegion(e.target.value)}/></label>
-  <label>{t('field_trade')}<input disabled={!!record} maxLength={200} className="block border p-2 rounded-xl w-full" value={trade} onChange={e=>setTrade(e.target.value)}/></label>
+  <div className="text-sm bg-teal-50 rounded-xl p-3"><strong>{t('field_trade')}</strong><p>{record?.trade?t(record.trade,{defaultValue:record.trade}):t('automaticCategoryNotice')}</p></div>
   <label>{t('Cohort')}<select disabled={!!record} className="block border p-2 rounded-xl w-full" value={cohort} onChange={e=>setCohort(e.target.value)}><option value="">{t('Not assigned')}</option>{cohort&&!cohorts.some(c=>c.id===cohort)&&<option value={cohort}>{cohort}</option>}{cohorts.map(c=><option key={c.id} value={c.id}>{c.name||c.id}</option>)}</select></label>
  </div>
- {Object.entries(schema.modules).map(([module,fields])=><fieldset key={module} className="border rounded-xl p-4"><legend className="font-bold">{t(({overview:'Overview',market:'Market',finance:'Finance',operations:'Operations',risk:'Risk'} as Record<string,string>)[module]||module)}</legend><div className="grid sm:grid-cols-2 gap-4">{fields.map(field=>{
+ {Object.entries(schema.modules).map(([module,fields])=><fieldset key={module} className="border rounded-xl p-4"><legend className="font-bold">{t(({overview:'Overview',market:'Market',finance:'Finance',operations:'Operations',risk:'Risk'} as Record<string,string>)[module]||module)}</legend><div className="grid sm:grid-cols-2 gap-4">{fields.filter(field=>!(module==='overview'&&field==='trade')).map(field=>{
   const key=module+'.'+field;const current=values[key]||{value:''};const set=(patch:Partial<FactDraft>)=>setValues(previous=>({...previous,[key]:{...current,...patch}}));
   return <div key={key}><label className="block text-sm">{t(fieldName(key),{defaultValue:field})}{schema.critical.includes(key)?' *':''}
    <input maxLength={2000} className="block border rounded p-2 w-full" value={current.value} onChange={e=>set({value:e.target.value})}/>

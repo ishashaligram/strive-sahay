@@ -19,6 +19,7 @@ from services.qwen_service import QwenService
 from services.indictrans_service import IndicTransService, LANGUAGES
 from services.screening import extract, score, Question, Report, pending_assessment_domains
 from services.pdf_service import PDFProcessingService
+from services.category import apply_category
 from services.whisper_service import FasterWhisperService
 from services.phone_auth import presentation_request, demo_path, install_phone_auth
 
@@ -233,6 +234,7 @@ async def process_text(req: TextRequest, user=Depends(account)):
 
 async def run_extraction(record):
     record["facts"] = await extract(record["sources"])
+    apply_category(record)
     transition(record, "EXTRACTED")
     persist(record)
     record["provisionalScore"] = score(record["facts"])
@@ -250,7 +252,7 @@ async def retry_extraction(sid: str, user=Depends(account)):
 
 def remaining(record):
     attempted = {q["field"] for q in record["questions"] if q["status"] != "pending"}
-    return [k for k, v in record["facts"].items() if v["status"] != "PROVIDED" and k not in attempted]
+    return [k for k, v in record["facts"].items() if k!="overview.trade" and v["status"] != "PROVIDED" and k not in attempted]
 
 @app.post("/api/clarification/{sid}/next-question")
 async def next_question(sid: str, user=Depends(account)):
@@ -290,6 +292,7 @@ async def answer(sid: str, req: AnswerRequest, user=Depends(account)):
         src = await source(req.answer, req.language, q["id"])
         # Question context is retained separately and never used as beneficiary evidence.
         src["questionContext"] = q["text"]
+        src["questionField"] = q["field"]
         if q.get("correction"):
             src["correctsField"] = q["field"]
         sources.append(src)
@@ -304,6 +307,7 @@ async def answer(sid: str, req: AnswerRequest, user=Depends(account)):
     record.setdefault("factHistory",[]).append({"at":now(),"actor":user["id"],"before":record["facts"]})
     record["sources"] = sources
     record["facts"] = facts
+    apply_category(record)
     record["currentScore"] = score(facts)
     record.pop("report", None)
     record.pop("finalScore", None)

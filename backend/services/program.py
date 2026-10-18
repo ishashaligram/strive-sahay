@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from fastapi import Depends, HTTPException
 from services.screening import MODULES, FIELDS, score, DEFAULT_RUBRIC, pending_assessment_domains
 from services.financials import financials
+from services.category import apply_category
 from services.qwen_service import QwenService
 
 CRITICAL=["overview.productService","overview.proposedLocation","market.targetCustomers","finance.initialInvestment","finance.unitCost","finance.sellingPrice","finance.monthlyExpenses","finance.expectedSales"]
@@ -197,6 +198,7 @@ def install_program(app, runtime):
             else:
                 facts[key]={"field":key,"value":None,"status":"MISSING","claims":[],"validation":{"valid":False,"errors":[]},"confirmed":False}
         record={"id":secrets.token_hex(16),"owner":user["id"],"assessor":user.get("assessor_id"),"title":req.title,"language":req.language,"cohortId":req.cohortId,"region":req.region,"trade":req.trade,"inputType":"structured","sources":sources,"facts":facts,"questions":[],"state":"EXTRACTED","history":[{"state":"DRAFT","at":now()},{"state":"EXTRACTED","at":now()}],"createdAt":now(),"revision":0,"maxQuestions":8,"assessmentVersions":[]}
+        apply_category(record)
         record["currentScore"]=score(facts)
         record["currentScore"]["assessmentType"]="EVIDENCE_COVERAGE_NOT_AI_RATING"
         record["provisionalScore"]=record["currentScore"]
@@ -213,6 +215,7 @@ def install_program(app, runtime):
             source_id="form:"+key+":"+secrets.token_hex(4)
             record["sources"].append({"id":source_id,"original":value.value,"english":value.value if req.language=="en" else "","language":req.language,"method":"BENEFICIARY_FORM","metadata":payload,"correctsField":key})
             record["facts"][key]={"field":key,"value":value.value,"status":"PROVIDED","claims":[{"value":value.value,"evidence":value.value,"source_id":source_id,"amount":value.amount,"currency":value.currency,"unit":value.unit,"period":value.period,"costBasis":value.costBasis}],"validation":{"valid":True,"errors":[]},"confirmed":False,"method":"BENEFICIARY_FORM","isEstimate":value.estimate}
+        apply_category(record)
         invalidate(record)
         transition(record,"EXTRACTED")
         return persist(record)
@@ -232,6 +235,7 @@ def install_program(app, runtime):
         for key in req.rejected:
             record["facts"][key].update({"confirmed":False,"status":"UNCLEAR","value":None})
         record.setdefault("factHistory",[]).append({"at":now(),"actor":user["id"],"before":before,"confirmed":req.fields,"rejected":req.rejected})
+        apply_category(record)
         invalidate(record)
         record["currentScore"]=score({k:{**f,"validation":{**f["validation"],"valid":f.get("confirmed",False) and f["validation"]["valid"]}} for k,f in record["facts"].items()})
         record["currentScore"]["assessmentType"]="EVIDENCE_COVERAGE_NOT_AI_RATING"
@@ -478,7 +482,7 @@ def install_program(app, runtime):
             eligible=[key for key in fields if key not in attempted]
             if eligible:candidates.append(next((key for key in eligible if not record["facts"].get(key,{}).get("confirmed")),eligible[0]))
         category_questions=bool(candidates)
-        if not candidates:candidates=[k for k,f in record["facts"].items() if (not f.get("confirmed") or f["status"]!="PROVIDED") and k not in attempted]
+        if not candidates:candidates=[k for k,f in record["facts"].items() if k!="overview.trade" and (not f.get("confirmed") or f["status"]!="PROVIDED") and k not in attempted]
         count=min(5,len(candidates)) if category_questions else min(5,len(candidates),max(0,max(8,record.get("maxQuestions",8))-len(record["questions"])))
         candidates=candidates[:count]
         if not count:return record

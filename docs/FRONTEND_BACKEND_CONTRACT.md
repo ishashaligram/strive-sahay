@@ -162,3 +162,12 @@ The login pages now show Phone number, Sign in, and Register for beneficiary, as
 Presentation sessions last 12 hours and use a separate `presentation.sqlite3` database for all accounts, cases, profiles, cohorts, and allocation. They cannot read existing screening records. `DEMO_DATABASE_PATH` must differ from `DATABASE_PATH`. `PRESENTATION_PHONE_LOGIN=false` disables new presentation logins. Do not treat this flow as production authentication.
 
 In presentation mode all three roles can register. Assessor allocation uses only assessors registered in the same presentation database. It balances workload within capacity, region, trade, and availability; the program manager can reassign with a reason. Program managers oversee the queue; there is no separate automatic per-manager beneficiary allocation.
+
+
+## PDF field mapping and automatic business category
+
+PDF parsing now removes overprinted duplicate characters and places text lines and table blocks in their document order. Table labels, empty cells, and row boundaries are retained; tables are no longer appended after unrelated page text. Garbled `(cid:...)` text requires OCR rather than becoming inferred facts.
+
+After exact source-quote and original-number validation, extracted PROVIDED claims receive a separate Qwen field-to-evidence mapping check. A source quotation must establish the meaning of its specific field: selling price is not unit cost, monthly expenses are not investment, and sample/template figures are not beneficiary evidence. Unsupported mappings become UNCLEAR with no displayed value. Incomplete verification fails rather than accepting unchecked fields. This is a model-assisted check and requires the real Qwen service; it is not a guarantee against every extraction error.
+
+`record.category` contains `{name,status,evidence,sourceField,method}`. `record.trade` is automatically derived from the validated `overview.productService`, using the existing program trade vocabulary and product/service keywords in seven languages. The category is derived metadata, not an invented beneficiary fact. Multiple matches or no clear match leave the category unresolved. Neither the form nor generated missing-field questions require the beneficiary to choose a trade. Further product/service details can resolve ambiguity. Category detection is recalculated after extraction, product edits, clarification answers, and rejected facts.
