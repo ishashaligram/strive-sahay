@@ -8,10 +8,10 @@ def test_compact_claims_still_require_source_evidence(monkeypatch):
         if 'Verify field-to-evidence mapping' in system:
             return {'checks':[{'id':c['id'],'supported':True} for c in data['candidates']]}
         return {'claims':[
-            {'field':'overview.productService','value':'I sell uniforms','source_id':'pitch','uncertain':False},
+            {'field':'overview.productService','value':'Uniform repairs are available','source_id':'pitch','uncertain':False},
             {'field':'finance.initialInvestment','value':'50000','source_id':'pitch','uncertain':False}]}
     monkeypatch.setattr(QwenService,'generate',generate)
-    facts=asyncio.run(extract([{'id':'pitch','english':'I sell uniforms','original':'I sell uniforms'}]))
-    assert facts['overview.productService']['value']=='I sell uniforms'
+    facts=asyncio.run(extract([{'id':'pitch','english':'Uniform repairs are available','original':'Uniform repairs are available'}]))
+    assert facts['overview.productService']['value']=='Uniform repairs are available'
     assert facts['finance.initialInvestment']['value'] is None
     assert not facts['finance.initialInvestment']['validation']['valid']

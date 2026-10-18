@@ -13,3 +13,6 @@ pytest>=8,<10
 python-docx>=1.1,<2
 firebase-admin>=6.5,<8
 faster-whisper>=1.0,<2
+av>=14,<17
+sentencepiece>=0.2,<0.3
+ctranslate2>=4.4,<5

@@ -6,7 +6,7 @@ The application API runs at http://127.0.0.1:8000/docs. It includes phone regist
 | --- | --- | --- |
 | POST /ocr | PDF multipart `file`, `language` (ISO code or auto) | Local Tesseract.js and eight downloaded OCR language files |
 | POST /translate | JSON `text`, `source_language`, `target_language` (IndicTrans codes) | Official IndicTrans2 models and model runtime |
-| POST /transcribe | Audio multipart `file`, `language` | faster-whisper runtime and weights; Odia requires a separate supported ASR adapter |
+| POST /transcribe | Audio multipart `file`, `language` | faster-whisper small; Odia uses the local MMS ory adapter |
 | GET /health | None | Reports server availability separately from model readiness |
 
 ## Start
@@ -31,4 +31,6 @@ For IndicTrans2, use a separate Python 3.11 environment with `backend/requiremen
 
 For speech, install the backend requirements including faster-whisper and allow the configured Whisper weights to download. An external multilingual ASR can instead be configured with `ASR_ENDPOINT`; avoid pointing the gateway's local transcription implementation back to itself.
 
-OCR was tested against a supplied Telugu form with a real HTTP request. Qwen inference, speech inference and IndicTrans2 translation require their respective runtime/models; they must not be represented as verified until an actual inference succeeds. No sample business facts are substituted on failure.
+The real-model English journey passed through final scoring/report, assessor recommendation and program-manager decision using temporary records. See `DEMO_RUNBOOK.md` for exact coverage and presentation steps. Local NLLB fallback inference was checked in all eight app languages with numeric preservation. Hindi and Odia 15-second dataset clips produced reviewed-required transcripts; all full dataset recordings have not been validated. IndicTrans2 remains unavailable pending model access. No sample business facts are substituted on failure.
+
+For the active local fallback, install `requirements.txt`, run `python scripts/setup_language_models.py`, and set `TRANSLATION_PROVIDER=nllb` in the private backend environment. For Odia speech, additionally install `backend/requirements-speech-models.txt` and run setup with `--odia`. NLLB and MMS weights use CC-BY-NC-4.0 licenses; retain the original model licenses and evaluate permitted use before any commercial deployment. Model sources and revisions are recorded under ignored `.runtime-models/*/source.json`. The CTranslate2 NLLB conversion is third-party; the source model is Meta's NLLB-200 distilled 600M. English requests still bypass translation entirely.

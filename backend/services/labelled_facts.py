@@ -32,3 +32,34 @@ def explicit_answers(source):
         if key in result and result[key]!=answer:result[key]=None
         else:result[key]=answer
     return {key:value for key,value in result.items() if value is not None}
+
+# Conservative speech/text anchors. Capture exact excerpts, never calculate or
+# use general business knowledge to fill a field.
+NARRATIVE=[
+ ('overview.productService',r'\b(?:I|we)\s+(?:sell|make|provide|offer|produce)\s+([^.!?\n]+)'),
+ ('overview.productService',r'\b(?:my|our)\s+business\s+(?:is|will be)\s+(?!\s*(?:in|located)\b)([^.!?\n]+)'),
+ ('overview.proposedLocation',r'\b(?:my|our|the)\s+(?:business|shop|unit)\s+(?:is|will be|operates?|is located)\s+(?:located\s+)?in\s+([^.!?\n]+)'),
+ ('market.targetCustomers',r'\b(?:my|our)\s+(?:target\s+)?customers\s+(?:are|will be|include)\s+([^.!?\n]+)'),
+ ('finance.initialInvestment',r'\b(?:initial|startup|start-up)\s+(?:investment|cost)\s+(?:is|will be|of)\s+([^.!?\n]+)'),
+ ('finance.availableCapital',r'\b(?:available capital|my savings|our savings)\s+(?:is|are|of)\s+([^.!?\n]+)'),
+ ('finance.unitCost',r'\b(?:unit cost|cost per unit|cost per item)\s+(?:is|will be|of)\s+([^.!?\n]+)'),
+ ('finance.sellingPrice',r'\b(?:selling price|price per unit|price per item)\s+(?:is|will be|of)\s+([^.!?\n]+)'),
+ ('finance.monthlyExpenses',r'\b(?:monthly expenses|monthly operating costs|monthly costs)\s+(?:are|is|will be|of)\s+([^.!?\n]+)'),
+ ('finance.expectedSales',r'\b(?:expected sales|monthly orders|monthly sales)\s+(?:are|is|will be|of)\s+([^.!?\n]+)'),
+ ('finance.revenueAssumptions',r'\b(?:monthly revenue|expected revenue)\s+(?:are|is|will be|of)\s+([^.!?\n]+)'),
+ ('operations.equipment',r'\b(?:my|our)\s+(?:equipment|machines)\s+(?:are|is|include)\s+([^.!?\n]+)'),
+ ('operations.suppliers',r'\b(?:my|our)\s+suppliers\s+(?:are|include|will be)\s+([^.!?\n]+)'),
+ ('operations.rawMaterials',r'\b(?:my|our|the)\s+raw materials\s+(?:are|include|will be)\s+([^.!?\n]+)'),
+ ('operations.staffing',r'\b(?:I|we)\s+(?:employ|have hired)\s+([^.!?\n]+)'),
+]
+def narrative_answers(source):
+    if source.get('documentWarnings') or '[Question]' in source['english']:return {}
+    result={}
+    for key,pattern in NARRATIVE:
+        for match in re.finditer(pattern,source['english'],re.I):
+            value=match.group(1).strip()
+            if re.search(r'\b(?:not sure|unknown|do not know|don.t know)\b',value,re.I):continue
+            if key.startswith('finance.') and not re.search(r'\d',value):continue
+            if key in result and result[key]!=value:result[key]=None
+            else:result[key]=value
+    return {key:value for key,value in result.items() if value}

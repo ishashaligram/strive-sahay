@@ -35,14 +35,51 @@ class QwenService:
 
     @staticmethod
     async def _generate(system, data, schema):
+        keyed_questions=None
+        keyed_ratings=None
+        if os.getenv('QWEN_MODEL')=='local-business-1.5b':
+            data=copy.deepcopy(data)
+            if 'facts' in data:
+                data['facts']={key:{name:fact[name] for name in ('value','status','confirmed','isEstimate') if name in fact} for key,fact in data['facts'].items()}
+            schema=copy.deepcopy(schema)
+            if 'ratings' in schema.get('properties',{}) and data.get('rubric'):
+                keyed_ratings=list(data['rubric'])
+                properties={}
+                for domain,(_,fields) in data['rubric'].items():
+                    item=copy.deepcopy(schema['$defs']['Rating'])
+                    item['properties']['domain']={'type':'string','const':domain}
+                    allowed=[key for key in fields if key in data['facts']]
+                    item['properties']['fields']={'type':'array','items':{'type':'string','enum':allowed},'maxItems':len(allowed)} if allowed else {'type':'array','maxItems':0,'items':{'type':'string'}}
+                    item['properties']['explanation']['maxLength']=240
+                    properties[domain]=item
+                schema={'type':'object','properties':properties,'required':keyed_ratings,'additionalProperties':False}
+            if schema.get('title')=='Report':
+                for key in ('strengths','weaknesses','recommendations'):
+                    schema['properties'][key]['maxItems']=4
+                    schema['properties'][key]['items']['maxLength']=240
+                schema['properties']['explanation']['maxLength']=600
         if os.getenv('QWEN_MODEL')=='local-business-1.5b' and ('question' in system.lower()):
+            if 'sources' in data and 'facts' in data:
+                data['sources']=[{'id':s['id'],'english':s.get('english','')} for s in data['sources'] if s['id']=='pitch']
+            if 'previousQuestions' in data:
+                data['previousQuestions']=[{k:q[k] for k in ('field','text','status','answer') if k in q} for q in data['previousQuestions']]
             schema=copy.deepcopy(schema)
             eligible=data.get('eligibleFields') or ([data['field']] if 'field' in data else [])
             question_schema=schema if schema.get('title')=='Question' else schema.get('$defs',{}).get('Question')
             if question_schema:
                 for key in ('text','rationale','guidance'):
-                    question_schema['properties'][key]['maxLength']=240
+                    question_schema['properties'][key]['maxLength']=180 if key=='text' else 120
                 if eligible:question_schema['properties']['field']['enum']=eligible
+                if 'questions' in schema.get('properties',{}) and eligible:
+                    # A keyed object makes duplicate/omitted field IDs impossible
+                    # at decoding time. Return the public list contract below.
+                    keyed_questions=['q'+str(index) for index in range(len(eligible))]
+                    properties={}
+                    for key,field in zip(keyed_questions,eligible):
+                        item=copy.deepcopy(question_schema)
+                        item['properties']['field']={'type':'string','const':field}
+                        properties[key]=item
+                    schema={'type':'object','properties':properties,'required':keyed_questions,'additionalProperties':False,'$defs':schema.get('$defs',{})}
             system+=' Every text must be an actual question ending with a question mark. Ask the beneficiary for missing information. Never answer your own question. Never state an investment amount or other invented business fact. Guidance must explain how to answer without giving an example answer.'
         endpoint = os.getenv("QWEN_ENDPOINT", "http://127.0.0.1:11434").rstrip("/")
         messages = [{"role": "system", "content": system + " Return compact JSON only. Keep explanations short. Do not repeat claims. Missing facts must have status MISSING and an empty claims array. Use null for unspecified amount, currency and unit."}, {"role": "user", "content": json.dumps(data, ensure_ascii=False)}]
@@ -57,4 +94,7 @@ class QwenService:
                 r = await client.post(endpoint + "/chat/completions", headers=headers, json={"model": model, "messages": messages, "temperature": 0, "response_format": {"type": "json_schema", "json_schema": {"name": "result", "strict": True, "schema": schema}}})
                 r.raise_for_status()
                 raw = r.json()["choices"][0]["message"]["content"]
-        return json.loads(raw)
+        parsed=json.loads(raw)
+        if keyed_questions:return {'questions':[parsed[key] for key in keyed_questions]}
+        if keyed_ratings:return {'ratings':[parsed[key] for key in keyed_ratings]}
+        return parsed

@@ -4,3 +4,4 @@ import pytest
 @pytest.fixture(autouse=True)
 def isolated_model_selection(monkeypatch):
     monkeypatch.setenv('QWEN_MODEL','qwen3:8b')
+    monkeypatch.setenv('TRANSLATION_PROVIDER','indictrans2')

@@ -15,3 +15,12 @@ def test_labelled_answers_fill_fields_without_inventing_missing_values(monkeypat
     assert facts['finance.revenueAssumptions']['reviewValue']=='About Rs 45000 per month'
     assert not facts['finance.revenueAssumptions']['validation']['valid']
     assert facts['finance.initialInvestment']['value'] is None
+
+def test_narrative_location_does_not_replace_product(monkeypatch):
+    monkeypatch.setenv('QWEN_MODEL','local-business-1.5b')
+    text='I sell school uniforms. My business is in Pune. My customers are local schools. My initial investment is INR 10000.'
+    facts=asyncio.run(extract([{'id':'pitch','english':text,'original':text}]))
+    assert facts['overview.productService']['value']=='school uniforms'
+    assert facts['overview.proposedLocation']['value']=='Pune'
+    assert facts['finance.initialInvestment']['value']=='INR 10000'
+    assert facts['finance.unitCost']['value'] is None

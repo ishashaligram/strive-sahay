@@ -26,7 +26,9 @@ async def health():
             entries=response.json().get('models' if ollama else 'data',[]) if response.is_success else []
             qwen=any(m.get('name' if ollama else 'id')==os.getenv('QWEN_MODEL','qwen3:8b') for m in entries)
     except httpx.HTTPError:pass
-    return {'server':'running','ocr':{'ready':ocr_ready(),'provider':'local-tesseract'},'indictrans2':{'ready':{'to_en','from_en'}.issubset(CACHE),'loadedDirections':list(CACHE),'modelAccessConfigured':bool(os.getenv('HF_TOKEN') or os.getenv('INDICTRANS_LOCAL_TO_EN'))},'qwen':{'ready':qwen,'model':os.getenv('QWEN_MODEL','qwen3:8b')}}
+    from services.local_translation import ready as nllb_ready
+    from services.local_odia import ready as odia_ready
+    return {'server':'running','ocr':{'ready':ocr_ready(),'provider':'local-tesseract'},'translation':{'provider':os.getenv('TRANSLATION_PROVIDER','indictrans2'),'weightsAvailable':nllb_ready() if os.getenv('TRANSLATION_PROVIDER')=='nllb' else {'to_en','from_en'}.issubset(CACHE)},'speech':{'whisperWeightsAvailable':(Path(__file__).resolve().parents[1]/'.runtime-models/whisper-small/model.bin').is_file(),'odiaWeightsAvailable':odia_ready()},'indictrans2':{'ready':{'to_en','from_en'}.issubset(CACHE),'loadedDirections':list(CACHE),'modelAccessConfigured':bool(os.getenv('HF_TOKEN') or os.getenv('INDICTRANS_LOCAL_TO_EN'))},'qwen':{'ready':qwen,'model':os.getenv('QWEN_MODEL','qwen3:8b')}}
 @app.post('/ocr')
 async def ocr(file:UploadFile=File(...),language:str=Form('auto')):
     if language!='auto' and language not in LANGUAGES:raise HTTPException(422,'Unsupported OCR language')
@@ -40,9 +42,14 @@ async def ocr(file:UploadFile=File(...),language:str=Form('auto')):
 async def translate(req:Translation):
     if req.source_language not in LANGUAGES.values() or req.target_language not in LANGUAGES.values():raise HTTPException(422,'Unsupported translation language')
     try:
-        result=await asyncio.to_thread(indic_translate,req.text,req.source_language,req.target_language)
+        provider='IndicTrans2'
+        translate_fn=indic_translate
+        if os.getenv('TRANSLATION_PROVIDER')=='nllb':
+            from services.local_translation import translate as translate_fn
+            provider='NLLB-200 local fallback'
+        result=await asyncio.to_thread(translate_fn,req.text,req.source_language,req.target_language)
         if sorted(numbers(req.text))!=sorted(numbers(result)):raise ValueError('Translation changed numeric quantities; source review required')
-        return {'translated_text':result,'provider':'IndicTrans2'}
+        return {'translated_text':result,'provider':provider}
     except (RuntimeError,ValueError) as exc:raise HTTPException(503,str(exc)) from exc
 @app.post('/transcribe')
 async def transcribe(file:UploadFile=File(...),language:str=Form('auto')):

@@ -7,6 +7,7 @@ import sqlite3
 import uuid
 import unicodedata
 import time
+import copy
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
@@ -208,6 +209,10 @@ async def source(text, language, sid):
     # model's language guess send plain English documents to translation.
     if language in ('auto','en') and letters and all('LATIN' in unicodedata.name(char,'') for char in letters):
         return {"id":sid,"original":text,"english":text,"language":"en","detectedLanguage":"en","translationUncertain":False,"createdAt":now()}
+    if language!='auto':
+        if language not in LANGUAGES:raise HTTPException(422,'Unsupported language')
+        english=await IndicTransService.translate(text,language,'en')
+        return {'id':sid,'original':text,'english':english,'language':language,'detectedLanguage':language,'translationUncertain':False,'createdAt':now()}
     detection_schema = {"type": "object", "properties": {"language": {"type": "string", "enum": list(LANGUAGES)}, "uncertain": {"type": "boolean"}, "mixed": {"type": "boolean"}}, "required": ["language", "uncertain", "mixed"], "additionalProperties": False}
     detected = await QwenService.generate("Detect the language of this text. In questionnaires identify the language of submitted answers rather than just the template headings. Flag uncertain detection and code mixing. Return JSON only.", {"text": text}, detection_schema)
     detected_language = detected.get("language")
@@ -330,11 +335,17 @@ async def answer(sid: str, req: AnswerRequest, user=Depends(account)):
         if q.get("correction") or record["facts"].get(q["field"],{}).get("status")!="PROVIDED":
             src["correctsField"] = q["field"]
         sources.append(src)
-    facts = await extract(sources)
+    if os.getenv('QWEN_MODEL')=='local-business-1.5b':
+        from services.screening import extract_answer
+        facts=copy.deepcopy(record['facts'])
+        if not req.dont_know:facts[q['field']]=await extract_answer(src,q['field'],record['facts'].get(q['field']))
+    else:
+        facts = await extract(sources)
     if req.dont_know:
         fact = facts[q["field"]]
         fact.update({"status": "UNCLEAR", "value": None, "validation": {"valid": False, "errors": ["Beneficiary has withdrawn certainty about this field"]}})
     q.update({"status": "unknown" if req.dont_know else "answered", "answer": "" if req.dont_know else req.answer, "answerLanguage": req.language, "answeredAt": now()})
+    if os.getenv('QWEN_MODEL')=='local-business-1.5b' and not facts[q['field']]['validation']['valid'] and not facts[q['field']].get('reviewValue'):q['status']='unknown'
     for key, fact in facts.items():
         old=record["facts"].get(key,{})
         fact["confirmed"]=bool(old.get("confirmed") and old.get("value")==fact.get("value") and fact["status"]=="PROVIDED")
