@@ -1,0 +1,6 @@
+{
+  "name": "STRIVE SAHAY - Multilingual AI Business Idea Screening & Mentoring",
+  "description": "AI-powered multilingual business idea screening, adaptive mentoring, structured profiling, and human assessor allocation platform for Tata STRIVE.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
