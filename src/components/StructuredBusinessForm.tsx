@@ -6,7 +6,7 @@ import {BUSINESS_MODULES,CRITICAL_FIELDS,FactDraft,draftFromRecord,changedFields
 
 export function StructuredBusinessForm({language,onSubmit,onClose,record}:{language:SupportedLanguage;onSubmit:(r:ScreeningRecord)=>void;onClose:()=>void;record?:ScreeningRecord}){
  const t=ui(language);
- const original=useMemo(()=>draftFromRecord(record),[record?.id,record?.updatedAt]);
+ const original=useMemo(()=>draftFromRecord(record,false),[record?.id,record?.updatedAt]);
  const [schema,setSchema]=useState<{modules:Record<string,readonly string[]>;critical:readonly string[]}>({modules:BUSINESS_MODULES,critical:CRITICAL_FIELDS});
  const [cohorts,setCohorts]=useState<{id:string;name?:string}[]>([]);
  const [values,setValues]=useState<Record<string,FactDraft>>(()=>draftFromRecord(record));
@@ -54,6 +54,7 @@ export function StructuredBusinessForm({language,onSubmit,onClose,record}:{langu
   return <div key={key}><label className="block text-sm">{t(fieldName(key),{defaultValue:field})}{schema.critical.includes(key)?' *':''}
    <input maxLength={2000} className="block border rounded p-2 w-full" value={current.value} onChange={e=>set({value:e.target.value})}/>
   </label>
+  {current.value&&record?.facts[key]?.reviewValue&&!record.facts[key].validation.valid&&<p className="text-xs text-amber-800 mt-1">{t('Extracted estimate — review before saving')}</p>}
   {record?.facts[key]?.confirmed&&<p className="text-xs text-teal-700 mt-1">{t('Confirmed')} · {t('changesNeedConfirmation')}</p>}
   {module==='finance'&&current.value&&<div className="grid grid-cols-2 gap-2 mt-2 text-xs">
    <label>{t('Explicit amount')}<input type="number" min={0} step="any" aria-label={t(fieldName(key))+' · '+t('Explicit amount')} value={current.amount??''} className="border p-2 rounded w-full" onChange={e=>set({amount:e.target.value===''?undefined:Number(e.target.value)})}/></label>

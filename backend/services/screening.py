@@ -118,6 +118,20 @@ def validate_facts(extraction, sources):
     return result
 
 async def extract(sources, _split=True):
+    from services.labelled_facts import explicit_answers
+    if os.getenv('QWEN_MODEL')=='local-business-1.5b' and sources and all('[Question]' in source['english'] and '[Submitted answer]' in source['english'] for source in sources):
+        mapped={key:{'status':'MISSING','claims':[]} for key in FIELDS}
+        review={}
+        for source in sources:
+            for key,value in explicit_answers(source).items():
+                mapped[key]['status']='PROVIDED'
+                mapped[key]['claims'].append({'value':value,'evidence':value,'source_id':source['id'],'amount':None,'currency':None,'unit':None})
+                if key in FINANCIAL and re.search(r'\b(about|around|estimated|approximately|roughly|expected)\b',value,re.I):review[key]=value
+        result=validate_facts(Extraction.model_validate({'facts':mapped}),sources)
+        for key,value in review.items():
+            result[key]['reviewValue']=value
+            result[key]['reviewEstimate']=True
+        return result
     if _split and any(len(source["english"])>6000 for source in sources):
         merged={key:{"status":"MISSING","claims":[]} for key in FIELDS}
         for source in sources:

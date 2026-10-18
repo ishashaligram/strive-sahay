@@ -279,7 +279,8 @@ async def run_extraction(record):
 @app.post("/api/submissions/{sid}/extract")
 async def retry_extraction(sid: str, user=Depends(account)):
     record = get_record(sid, user, True)
-    if record["state"] not in ("DRAFT", "EXTRACTED"):
+    recoverable=record['state']=='PROVISIONALLY_SCORED' and not any(f.get('validation',{}).get('valid') or f.get('confirmed') for f in record['facts'].values()) and not any(q.get('status')=='answered' for q in record['questions'])
+    if record["state"] not in ("DRAFT", "EXTRACTED") and not recoverable:
         raise HTTPException(409, "Extraction already completed")
     return await run_extraction(record)
 

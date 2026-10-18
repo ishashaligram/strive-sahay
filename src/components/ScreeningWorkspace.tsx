@@ -45,6 +45,12 @@ export function ScreeningWorkspace({role,language,onLanguageChange}: {role:'bene
     try {update(await api<ScreeningRecord>(path,body));} catch(e) {setError(t((e as Error).message,{defaultValue:(e as Error).message}));throw e;} finally {setBusy('');}
   };
   const safeAction = async (path:string,body:unknown={}) => {try {await action(path,body);} catch{/* error is displayed above */}};
+  const openStructured=()=>void run(t('Preparing extracted business facts…'),async()=>{
+    if(record&&record.state==='PROVISIONALLY_SCORED'&&!Object.values(record.facts).some(f=>f.validation.valid||f.confirmed)&&!record.questions.some(q=>q.status==='answered')&&record.sources.every(s=>s.english.includes('[Submitted answer]'))){
+      update(await api<ScreeningRecord>('/submissions/'+record.id+'/extract',{}));
+    }
+    setEditStructured(!!record);setStructured(true);
+  });
   useEffect(()=>{
     if(record && role==='beneficiary' && record.language!==language && !busy){
       const attempt=record.id+':'+language;
@@ -71,7 +77,7 @@ export function ScreeningWorkspace({role,language,onLanguageChange}: {role:'bene
       {role==='assessor'&&<span className="text-sm text-slate-500">Screening account: {account.id}</span>}
       <select disabled={!!busy} aria-label="Saved submission" className="border rounded-xl p-3 bg-white" value={selected} onChange={e=>setSelected(e.target.value)}><option value="">{t("Select saved submission")}</option>{records.map(r=><option key={r.id} value={r.id}>{r.title} · {workflowLabel(r.state,role==='assessor'?'en':language)}</option>)}</select>
       <button disabled={!!busy} className="border rounded-xl p-3" onClick={()=>void run(t("Refreshing saved records…"),load)}>{t("Refresh progress")}</button>
-      {role==='beneficiary' && <><button disabled={!!busy} className="bg-teal-600 text-white rounded-xl p-3" onClick={()=>setModal(true)}>{t("Upload / type business pitch")}</button><button disabled={!!busy} className="border border-teal-600 text-teal-700 rounded-xl p-3" onClick={()=>{setEditStructured(false);setStructured(true);}}>{t('structured')}</button></>}
+      {role==='beneficiary' && <><button disabled={!!busy} className="bg-teal-600 text-white rounded-xl p-3" onClick={()=>setModal(true)}>{t("Upload / type business pitch")}</button><button disabled={!!busy} className="border border-teal-600 text-teal-700 rounded-xl p-3" onClick={openStructured}>{t('structured')}</button></>}
       <button className="text-sm underline" disabled={!!busy} onClick={()=>{void api('/auth/logout',{}).catch(()=>{});sessionStorage.removeItem('screening_access_token');setAccount(null);setRecords([]);setSelected('');}}>{t("Disconnect")}</button>
     </div>}
     {role==='assessor'&&account&&<section className="bg-white border p-4 rounded-2xl space-y-3"><div className="flex flex-wrap gap-2">{['Assigned Cases','Assessment Ready','Clarification Required','Awaiting Beneficiary Response','Reviews Completed'].map(tab=><button key={tab} className={'border p-2 rounded '+(tab===queue?'bg-teal-600 text-white':'')} onClick={()=>setQueue(tab)}>{tab} ({records.filter(r=>tab==='Assigned Cases'||(tab==='Assessment Ready'&&r.state==='SUBMITTED')||(tab==='Clarification Required'&&r.state==='CLARIFICATION_REQUIRED')||(tab==='Awaiting Beneficiary Response'&&r.state==='AWAITING_BENEFICIARY')||(tab==='Reviews Completed'&&!!r.recommendation)).length})</button>)}</div><div className="flex gap-2 flex-wrap"><label>Preferred active cases <input type="number" min={0} className="border p-2 rounded w-20" value={preferredCapacity} onChange={e=>setPreferredCapacity(Number(e.target.value))}/></label><label><input type="checkbox" checked={available} onChange={e=>setAvailable(e.target.checked)}/> Available</label><button onClick={()=>void run('Saving capacity…',async()=>{await api('/assessor/capacity',{id:account.id,data:{preferred:preferredCapacity,available}});})}>Save preference</button></div><div className="flex flex-wrap gap-2">{records.filter(r=>queue==='Assigned Cases'||(queue==='Assessment Ready'&&r.state==='SUBMITTED')||(queue==='Clarification Required'&&r.state==='CLARIFICATION_REQUIRED')||(queue==='Awaiting Beneficiary Response'&&r.state==='AWAITING_BENEFICIARY')||(queue==='Reviews Completed'&&!!r.recommendation)).map(r=><button key={r.id} className="text-teal-700 border p-2 rounded" onClick={()=>setSelected(r.id)}>{r.title} · {r.owner}</button>)}</div></section>}
@@ -92,7 +98,7 @@ export function ScreeningWorkspace({role,language,onLanguageChange}: {role:'bene
           {record.finalScore && <p className="text-sm">{t('Final')}: {record.finalScore.overallScore}/10</p>}
         </details>}
       </div>
-      {role==='beneficiary'&&!LOCKED_STATES.has(record.state)&&<div className="bg-teal-50 border border-teal-200 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-3"><p className="text-teal-950">{t(canFinalize(record)?'confirmFacts':'missingAnswerNotice')}</p><button disabled={!!busy} className="bg-teal-600 text-white rounded-xl p-3" onClick={()=>{setEditStructured(true);setStructured(true);}}>{t('Add / correct business facts')}</button></div>}
+      {role==='beneficiary'&&!LOCKED_STATES.has(record.state)&&<div className="bg-teal-50 border border-teal-200 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-3"><p className="text-teal-950">{t(canFinalize(record)?'confirmFacts':'missingAnswerNotice')}</p><button disabled={!!busy} className="bg-teal-600 text-white rounded-xl p-3" onClick={openStructured}>{t('Add / correct business facts')}</button></div>}
       {Object.keys(record.facts).length>0 && <SplitScreenMentor record={displayRecord} busy={!!busy || role==='assessor'} onAction={action} onUpdate={update}/>}
       {report && <section className="bg-white border rounded-2xl p-6 space-y-4"><h2 className="text-xl font-bold">{t("Final assessment & mentoring report")}</h2>
         {reportPending&&<p role="status" className="bg-amber-50 text-amber-800 rounded-xl p-3">{t('Translation pending')}: {t('English source content shown until translation is available')}</p>}
@@ -107,7 +113,7 @@ export function ScreeningWorkspace({role,language,onLanguageChange}: {role:'bene
       <ProgramCaseTools key={record.id} record={displayRecord} role={role} busy={!!busy} onAction={action} onUpdate={update}/>
       {role==='assessor' && <details className="bg-white p-6 rounded-2xl border"><summary>Evidence sources, answers and workflow audit</summary><pre className="text-xs whitespace-pre-wrap break-all">{JSON.stringify({sources:record.sources,questions:record.questions,history:record.history},null,2)}</pre></details>}
     </div>}
-    {structured&&<StructuredBusinessForm record={editStructured?record:undefined} language={language} onClose={()=>setStructured(false)} onSubmit={update}/>}
+    {structured&&<StructuredBusinessForm record={record} language={language} onClose={()=>setStructured(false)} onSubmit={update}/>}
     {modal && <IdeaSubmissionModal isOpen onClose={()=>setModal(false)} currentLang={language} onSubmit={update}/>}
   </div>;
 }
