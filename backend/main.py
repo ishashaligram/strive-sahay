@@ -5,6 +5,7 @@ import os
 import secrets
 import sqlite3
 import uuid
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
@@ -182,6 +183,11 @@ class TranslateRequest(BaseModel):
 
 async def source(text, language, sid):
     if damaged_text(text):raise HTTPException(422,"The text contains unreadable PDF characters. Use OCR or paste a corrected transcript.")
+    letters=[char for char in text if char.isalpha()]
+    # All supported non-English inputs use Indic scripts. Do not let a small
+    # model's language guess send plain English documents to translation.
+    if language in ('auto','en') and letters and all('LATIN' in unicodedata.name(char,'') for char in letters):
+        return {"id":sid,"original":text,"english":text,"language":"en","detectedLanguage":"en","translationUncertain":False,"createdAt":now()}
     detection_schema = {"type": "object", "properties": {"language": {"type": "string", "enum": list(LANGUAGES)}, "uncertain": {"type": "boolean"}, "mixed": {"type": "boolean"}}, "required": ["language", "uncertain", "mixed"], "additionalProperties": False}
     detected = await QwenService.generate("Detect the language of this text. In questionnaires identify the language of submitted answers rather than just the template headings. Flag uncertain detection and code mixing. Return JSON only.", {"text": text}, detection_schema)
     detected_language = detected.get("language")
