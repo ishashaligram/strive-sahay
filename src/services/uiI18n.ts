@@ -1,3 +1,4 @@
+import {ODIA_UI} from './odia';
 import {installPhoneTranslations} from './phoneI18n';
 import i18next from 'i18next';
 import {initReactI18next} from 'react-i18next';
@@ -5,6 +6,7 @@ import {translations} from './i18n';
 import {STATIC_RESOURCES} from './frontendCopy';
 import {SupportedLanguage} from '../types';
 const labels={
+ or:['ମୋ ବ୍ୟବସାୟ','ବ୍ୟବସାୟ ତଥ୍ୟ ଲେଖନ୍ତୁ','ତଥ୍ୟ ନିଶ୍ଚିତ କରନ୍ତୁ','ବ୍ୟବସାୟ ଯୋଜନା ତିଆରି କରନ୍ତୁ','PDF ସଞ୍ଚୟ କରନ୍ତୁ','ଆର୍ଥିକ ସମ୍ଭାବନା','ମାର୍ଗଦର୍ଶନ ମାଗନ୍ତୁ','AI ମୂଲ୍ୟାଙ୍କନ','୩୦ ଦିନର ଯୋଜନା','ସ୍ଥାନୀୟ ବ୍ୟବସାୟ ତଥ୍ୟ','ନିଶ୍ଚିତ ହେବାକୁ ବାକି','ସଞ୍ଚୟ କରନ୍ତୁ','ଆପଣଙ୍କ ଉତ୍ତର','ପସନ୍ଦର ଭାଷା','ବ୍ୟବସାୟ ଯୋଜନା','ଯାଞ୍ଚ ହୋଇଥିବା ବଜାର ତଥ୍ୟ ଉପଲବ୍ଧ ନାହିଁ'],
 en:['Business readiness workspace','Submit structured business information','Confirm supported fields','Generate business plan','Download / Save PDF','Financial feasibility','Request human clarification assistance','Get AI domain assessment','Generate 30-day roadmap','Local business insights','To be confirmed','Save','Your answer','Preferred language','Business plan','No verified live market data available'],
 hi:['व्यवसाय तैयारी कार्यक्षेत्र','व्यवसाय की जानकारी भरें','समर्थित जानकारी की पुष्टि करें','व्यवसाय योजना बनाएं','डाउनलोड / PDF सहेजें','वित्तीय व्यवहार्यता','मानव मार्गदर्शन का अनुरोध करें','एआई मूल्यांकन प्राप्त करें','30 दिनों की कार्ययोजना बनाएं','स्थानीय व्यवसाय की जानकारी','पुष्टि करना बाकी है','सहेजें','आपका उत्तर','पसंदीदा भाषा','व्यवसाय योजना','सत्यापित स्थानीय बाजार डेटा उपलब्ध नहीं है'],
 mr:['व्यवसाय तयारी कार्यक्षेत्र','व्यवसायाची माहिती भरा','माहितीची पुष्टी करा','व्यवसाय आराखडा तयार करा','डाउनलोड / PDF जतन करा','आर्थिक व्यवहार्यता','मानवी मार्गदर्शनाची विनंती करा','एआय मूल्यमापन मिळवा','३० दिवसांचा कृती आराखडा','स्थानिक व्यवसाय माहिती','पुष्टी करणे बाकी आहे','जतन करा','तुमचे उत्तर','पसंतीची भाषा','व्यवसाय आराखडा','सत्यापित स्थानिक बाजार माहिती उपलब्ध नाही'],
@@ -68,3 +70,8 @@ installPhoneTranslations();
 
 const categoryCopy:Record<string,string>={en:'Selected automatically from your product or service. If unclear, describe what you plan to sell; no category selection is required.',hi:'आपके उत्पाद या सेवा से श्रेणी अपने आप चुनी जाएगी। स्पष्ट न हो तो बताएं कि आप क्या बेचेंगे।',mr:'तुमच्या उत्पादन किंवा सेवेवरून श्रेणी आपोआप निवडली जाईल. स्पष्ट नसल्यास काय विकणार ते सांगा.',te:'మీ ఉత్పత్తి లేదా సేవ ఆధారంగా వర్గం స్వయంచాలకంగా ఎంపిక అవుతుంది. మీరు ఏమి విక్రయిస్తారో వివరించండి.',ta:'உங்கள் தயாரிப்பு அல்லது சேவையிலிருந்து வகை தானாகத் தேர்ந்தெடுக்கப்படும். என்ன விற்கப் போகிறீர்கள் என்று விவரிக்கவும்.',kn:'ನಿಮ್ಮ ಉತ್ಪನ್ನ ಅಥವಾ ಸೇವೆಯಿಂದ ವರ್ಗವನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಆಯ್ಕೆ ಮಾಡಲಾಗುತ್ತದೆ. ಏನು ಮಾರಾಟ ಮಾಡುವಿರಿ ಎಂದು ವಿವರಿಸಿ.',bn:'আপনার পণ্য বা পরিষেবা থেকে বিভাগ নিজে বেছে নেওয়া হবে। কী বিক্রি করবেন তা জানান।'};
 for(const [language,copy] of Object.entries(categoryCopy))i18next.addResource(language,'translation','automaticCategoryNotice',copy);
+
+i18next.addResourceBundle('or','translation',ODIA_UI,true,true);
+
+const overwriteCopy:Record<string,string>={en:'This document has crossed-out or overlapping answers. Clarification is required before those values can be accepted.',hi:'इस दस्तावेज़ में काटे गए या एक-दूसरे पर लिखे उत्तर हैं। इन्हें स्वीकार करने से पहले स्पष्टीकरण जरूरी है।',mr:'या दस्तऐवजात खोडलेली किंवा एकमेकांवर लिहिलेली उत्तरे आहेत. ती स्वीकारण्यापूर्वी स्पष्टीकरण आवश्यक आहे.',te:'ఈ పత్రంలో కొట్టివేసిన లేదా ఒకదానిపై మరొకటి రాసిన సమాధానాలు ఉన్నాయి. స్పష్టీకరణ అవసరం.',ta:'இந்த ஆவணத்தில் அடிக்கப்பட்ட அல்லது ஒன்றின் மேல் ஒன்று எழுதப்பட்ட பதில்கள் உள்ளன. விளக்கம் தேவை.',kn:'ಈ ದಾಖಲೆಯಲ್ಲಿ ಅಳಿಸಿದ ಅಥವಾ ಒಂದರ ಮೇಲೆ ಇನ್ನೊಂದು ಬರೆದ ಉತ್ತರಗಳಿವೆ. ಸ್ಪಷ್ಟೀಕರಣ ಅಗತ್ಯ.',bn:'এই নথিতে কাটা বা একটির উপর আরেকটি লেখা উত্তর রয়েছে। স্পষ্টীকরণ প্রয়োজন।',or:'ଏହି ଦସ୍ତାବିଜରେ କଟା ବା ଉପରେ ଲେଖା ଉତ୍ତର ଅଛି। ସ୍ପଷ୍ଟୀକରଣ ଆବଶ୍ୟକ।'};
+for(const [language,copy] of Object.entries(overwriteCopy))i18next.addResource(language,'translation','overwrittenDocumentNotice',copy);

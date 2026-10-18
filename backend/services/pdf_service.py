@@ -1,3 +1,4 @@
+from services.document_layout import damaged_text,overwritten_text,labelled_rows
 import io
 import os
 import httpx
@@ -8,9 +9,11 @@ class PDFProcessingService:
         import pdfplumber
         pages=[]
         needs_ocr=False
+        qa_context={}
         with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
             for number,page in enumerate(pdf.pages,1):
                 page=page.dedupe_chars(tolerance=1)
+                ambiguous=overwritten_text(page)
                 tables=page.find_tables()
                 bounds=[t.bbox for t in tables]
                 def outside_tables(obj):
@@ -26,22 +29,30 @@ class PDFProcessingService:
                     rows=table.extract()
                     # Retain cell boundaries and empty cells: never attach a price to
                     # the neighbouring row, repeat merged values, or invent a total.
-                    table_text="\n".join(" | ".join((str(cell).replace("\n"," / ").strip() if cell is not None else "") for cell in row) for row in rows if any(cell and str(cell).strip() for cell in row))
+                    table_text=labelled_rows(rows,qa_context)
                     if table_text:
                         table_texts.append(table_text)
                         blocks.append((table.bbox[1],table.bbox[0],"[Table "+str(index)+"]\n"+table_text))
                 combined="\n".join(block[2] for block in sorted(blocks,key=lambda block:(block[0],block[1]))).strip()
-                needs_ocr=needs_ocr or not combined or combined.count("\ufffd")>max(1,len(combined)//100) or "(cid:" in combined
-                pages.append({"page_number":number,"text":combined,"tables":table_texts})
+                needs_ocr=needs_ocr or not combined or combined.count("\ufffd")>max(1,len(combined)//100) or damaged_text(combined) or ambiguous
+                pages.append({"page_number":number,"text":combined,"tables":table_texts,"warnings":["OVERWRITTEN_ANSWERS"] if ambiguous else []})
         if not pages or needs_ocr:
             endpoint=os.getenv("OCR_ENDPOINT")
             if not endpoint:
-                raise ValueError("Scanned or garbled document requires OCR_ENDPOINT. Upload a searchable replacement or paste reviewed text.")
+                raise ValueError("Scanned, damaged-font, or overwritten document requires OCR_ENDPOINT. Upload a searchable replacement or paste reviewed text.")
             headers={"Authorization":"Bearer "+os.environ["OCR_API_KEY"]} if os.getenv("OCR_API_KEY") else {}
             response=httpx.post(endpoint,headers=headers,files={"file":(filename,file_bytes,"application/pdf")},timeout=float(os.getenv("AI_TIMEOUT","180")))
             response.raise_for_status()
             data=response.json()
             text=data["text"]
             if not isinstance(text,str) or not text.strip():raise ValueError("OCR returned no text")
-            return {"full_text":text,"pages":data.get("pages",[]),"is_scanned":True}
+            if damaged_text(text):raise ValueError("OCR text still contains unreadable characters. Paste a reviewed transcript instead.")
+            ocr_pages=data.get('pages',[]) or pages
+            if not isinstance(ocr_pages,list) or any(not isinstance(page,dict) for page in ocr_pages):raise ValueError('OCR returned invalid page metadata')
+            document_warnings=sorted({warning for original in pages for warning in original.get('warnings',[])})
+            for page in ocr_pages:
+                page['warnings']=document_warnings
+                original=next((old for old in pages if old['page_number']==page.get('page_number')),None)
+                if original:page['warnings']=original.get('warnings',[])
+            return {"full_text":text,"pages":ocr_pages,"is_scanned":True,"warnings":sorted({warning for page in pages for warning in page.get("warnings",[])})}
         return {"full_text":"\n\n".join("[Page "+str(p["page_number"])+"]\n"+p["text"] for p in pages),"pages":pages,"is_scanned":False}

@@ -118,6 +118,11 @@ def install_program(app, runtime):
         return ids
     runtime["store_media"]=store_media
     runtime["validate_media"]=validate_media
+    def document_warnings(ids,user):
+        validate_media(ids,user)
+        return sorted({warning for media in all_entities('media') if media['id'] in ids for page in media.get('pages',[]) for warning in page.get('warnings',[])})
+    runtime['document_warnings']=document_warnings
+
 
     @app.get("/api/media/{mid}")
     def media_file(mid:str,user=Depends(account)):
@@ -514,12 +519,12 @@ def install_program(app, runtime):
             "Market and competitors":["market.demandEvidence","market.competition"],
             "Unique selling proposition":["market.differentiation"],
             "Marketing and customer acquisition":["market.salesChannels"],
-            "Operations and resources":["operations.equipment","operations.suppliers","operations.staffing","operations.capacity"],
+            "Operations and resources":["operations.rawMaterials","operations.equipment","operations.suppliers","operations.staffing","operations.capacity"],
             "Startup investment":["finance.initialInvestment","finance.availableCapital"],
             "Monthly costs and revenue":["finance.monthlyExpenses","finance.expectedSales","finance.revenueAssumptions"],
             "Profit and break-even scenarios":[],
             "Risks and mitigation":["risk.marketRisks","risk.financialRisks","risk.operationalRisks","risk.mitigation","risk.compliance"],
-            "Funding and use of funds":["finance.requestedFunding"],
+            "Funding and use of funds":["finance.requestedFunding","finance.fundingSources"],
             "Business launch roadmap":[],
             "Mentoring recommendations":[],
             "Missing information and assumptions":[],

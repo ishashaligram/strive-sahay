@@ -1,6 +1,6 @@
 export type UserRole = 'beneficiary' | 'assessor' | 'admin';
 
-export type SupportedLanguage = 'en' | 'mr' | 'hi' | 'te' | 'ta' | 'kn' | 'bn';
+export type SupportedLanguage = 'en' | 'mr' | 'hi' | 'te' | 'ta' | 'kn' | 'bn' | 'or';
 
 export type FactStatus = 'PROVIDED' | 'MISSING' | 'UNCLEAR' | 'CONFLICTING' | 'UNKNOWN';
 

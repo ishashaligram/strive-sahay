@@ -16,10 +16,11 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ConfigDict
 from dotenv import load_dotenv
 from services.qwen_service import QwenService
-from services.indictrans_service import IndicTransService, LANGUAGES
+from services.indictrans_service import IndicTransService, LANGUAGES, translate_mixed_to_english
 from services.screening import extract, score, Question, Report, pending_assessment_domains
 from services.pdf_service import PDFProcessingService
 from services.category import apply_category
+from services.document_layout import damaged_text
 from services.whisper_service import FasterWhisperService
 from services.phone_auth import presentation_request, demo_path, install_phone_auth
 
@@ -176,15 +177,16 @@ class TranslateRequest(BaseModel):
     target: str
 
 async def source(text, language, sid):
+    if damaged_text(text):raise HTTPException(422,"The text contains unreadable PDF characters. Use OCR or paste a corrected transcript.")
     detection_schema = {"type": "object", "properties": {"language": {"type": "string", "enum": list(LANGUAGES)}, "uncertain": {"type": "boolean"}, "mixed": {"type": "boolean"}}, "required": ["language", "uncertain", "mixed"], "additionalProperties": False}
-    detected = await QwenService.generate("Detect the language of this text. Flag uncertain detection and code mixing. Return JSON only.", {"text": text}, detection_schema)
+    detected = await QwenService.generate("Detect the language of this text. In questionnaires identify the language of submitted answers rather than just the template headings. Flag uncertain detection and code mixing. Return JSON only.", {"text": text}, detection_schema)
     detected_language = detected.get("language")
     if detected_language not in LANGUAGES:
         raise ValueError("Language detection returned an unsupported language; select the source language")
     lang = detected_language if language == "auto" else language
     if lang not in LANGUAGES:
         raise HTTPException(422, "Unsupported language")
-    english = await IndicTransService.translate(text, lang, "en")
+    english = await translate_mixed_to_english(text,lang) if detected.get("mixed") else await IndicTransService.translate(text, lang, "en")
     return {"id": sid, "original": text, "english": english, "language": lang, "detectedLanguage": detected_language, "translationUncertain": bool(detected.get("uncertain") or detected.get("mixed")), "createdAt": now()}
 
 @app.exception_handler(Exception)
@@ -229,6 +231,7 @@ async def process_text(req: TextRequest, user=Depends(account)):
     src = await source(req.text, req.language, "pitch")
     record = {"id": str(uuid.uuid4()), "owner": user["id"], "assessor": user.get("assessor_id"), "title": req.title, "inputType": req.input_type, "language": req.interaction_language or src["language"], "maxQuestions": int(os.getenv("MAX_QUESTIONS", "8")), "sources": [src], "questions": [], "facts": {}, "state": "DRAFT", "history": [{"state": "DRAFT", "at": now()}], "createdAt": now(), "revision": 0}
     record["mediaIds"] = validate_media(req.media_ids, user)
+    src["documentWarnings"]=document_warnings(req.media_ids,user)
     persist(record, new=True)
     return await run_extraction(record)
 
@@ -293,7 +296,7 @@ async def answer(sid: str, req: AnswerRequest, user=Depends(account)):
         # Question context is retained separately and never used as beneficiary evidence.
         src["questionContext"] = q["text"]
         src["questionField"] = q["field"]
-        if q.get("correction"):
+        if q.get("correction") or record["facts"].get(q["field"],{}).get("status")!="PROVIDED":
             src["correctsField"] = q["field"]
         sources.append(src)
     facts = await extract(sources)
@@ -437,7 +440,7 @@ async def document(file: UploadFile = File(...), user=Depends(account)):
     if not text.strip():
         raise HTTPException(422,"No readable document text found")
     media_id=store_media(data,file.filename or "document",user,file.content_type or "application/octet-stream",pages)
-    return {"text": text, "reviewRequired": True,"uploadId":media_id,"pages":pages}
+    return {"text": text, "reviewRequired": True,"uploadId":media_id,"pages":pages,"warnings":sorted({warning for page in pages for warning in page.get("warnings",[])})}
 
 @app.post("/api/pipeline/process-voice")
 async def voice(file: UploadFile = File(...), language: str = Form("auto"), user=Depends(account)):
@@ -446,7 +449,7 @@ async def voice(file: UploadFile = File(...), language: str = Form("auto"), user
     if not (file.filename or "").lower().endswith((".webm",".wav",".mp3",".m4a",".ogg",".mp4",".flac")):
         raise HTTPException(415,"Upload a supported audio recording")
     data=await upload_bytes(file)
-    result=await asyncio.to_thread(FasterWhisperService.transcribe,data,language)
+    result=await asyncio.to_thread(FasterWhisperService.transcribe,data,language,file.filename or "recording.webm")
     result["uploadId"]=store_media(data,file.filename or "recording.webm",user,file.content_type or "audio/webm",[])
     return result
 

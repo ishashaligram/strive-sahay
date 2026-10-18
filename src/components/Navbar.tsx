@@ -148,7 +148,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <option value="te" className="bg-slate-900 text-white">తెలుగు (Telugu)</option>
                   <option value="ta" className="bg-slate-900 text-white">தமிழ் (Tamil)</option>
                   <option value="kn" className="bg-slate-900 text-white">ಕನ್ನಡ (Kannada)</option>
-                  <option value="bn" className="bg-slate-900 text-white">বাংলা (Bengali)</option>
+                  <option value="bn" className="bg-slate-900 text-white">বাংলা (Bengali)</option><option value="or" className="bg-slate-900 text-white">ଓଡ଼ିଆ (Odia)</option>
                 </select>
               </div>
             )}

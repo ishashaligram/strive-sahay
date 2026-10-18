@@ -2,8 +2,8 @@ import {ScreeningRecord} from './screeningApi';
 export const BUSINESS_MODULES={
  overview:['businessName','trade','productService','proposedLocation','businessStage'],
  market:['targetCustomers','customerProblem','demandEvidence','competition','differentiation','salesChannels'],
- finance:['initialInvestment','availableCapital','unitCost','sellingPrice','expectedSales','revenueAssumptions','monthlyExpenses','requestedFunding'],
- operations:['equipment','suppliers','capacity','skills','staffing','distribution'],
+ finance:['initialInvestment','availableCapital','unitCost','sellingPrice','expectedSales','revenueAssumptions','monthlyExpenses','requestedFunding','fundingSources'],
+ operations:['equipment','suppliers','capacity','skills','staffing','distribution','rawMaterials'],
  risk:['marketRisks','financialRisks','operationalRisks','mitigation','compliance'],
 } as const;
 export const BUSINESS_FIELDS=Object.entries(BUSINESS_MODULES).flatMap(([module,fields])=>fields.map(field=>module+'.'+field));
@@ -34,7 +34,7 @@ export function validateDraft(values:Record<string,FactDraft>):string|null{
  for(const value of Object.values(values)){
   if(value.amount!==undefined){
    if(!Number.isFinite(value.amount)||value.amount<0)return 'Enter a valid non-negative amount';
-   const ascii=value.value.replace(/[०-९]/g,c=>String(c.charCodeAt(0)-0x0966)).replace(/[০-৯]/g,c=>String(c.charCodeAt(0)-0x09e6)).replace(/[౦-౯]/g,c=>String(c.charCodeAt(0)-0x0c66)).replace(/[೦-೯]/g,c=>String(c.charCodeAt(0)-0x0ce6)).replace(/[௦-௯]/g,c=>String(c.charCodeAt(0)-0x0be6)).replaceAll(',','');
+   const ascii=value.value.replace(/[०-९]/g,c=>String(c.charCodeAt(0)-0x0966)).replace(/[০-৯]/g,c=>String(c.charCodeAt(0)-0x09e6)).replace(/[౦-౯]/g,c=>String(c.charCodeAt(0)-0x0c66)).replace(/[೦-೯]/g,c=>String(c.charCodeAt(0)-0x0ce6)).replace(/[௦-௯]/g,c=>String(c.charCodeAt(0)-0x0be6)).replace(/[୦-୯]/g,c=>String(c.charCodeAt(0)-0x0b66)).replaceAll(',','');
    if(!(ascii.match(/\d+(?:\.\d+)?/g)||[]).some(n=>Number(n)===value.amount))return 'The amount must match a number in the field text';
   }
  }

@@ -88,7 +88,7 @@ export const LandingPage: React.FC = () => {
                   Aspiring Entrepreneur
                 </h3>
                 <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                  Submit your business idea in your preferred language (English, हिन्दी, मराठी, తెలుగు, தமிழ், ಕನ್ನಡ, বাংলা), receive adaptive AI mentoring, improve your pitch, and qualify for incubation.
+                  Submit your business idea in your preferred language (English, हिन्दी, मराठी, తెలుగు, தமிழ், ಕನ್ನಡ, বাংলা, ଓଡ଼ିଆ), receive adaptive AI mentoring, improve your pitch, and qualify for incubation.
                 </p>
               </div>
 
@@ -96,7 +96,7 @@ export const LandingPage: React.FC = () => {
                 <ul className="text-[11px] text-slate-400 space-y-1.5">
                   <li className="flex items-center space-x-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 flex-shrink-0" />
-                    <span>7 languages with configured translation</span>
+                    <span>8 languages with configured translation</span>
                   </li>
                   <li className="flex items-center space-x-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 flex-shrink-0" />

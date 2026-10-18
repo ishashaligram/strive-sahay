@@ -9,12 +9,12 @@ from services.qwen_service import QwenService, STRICT_PROMPT
 MODULES = {
     "overview": ["businessName", "trade", "productService", "proposedLocation", "businessStage"],
     "market": ["targetCustomers", "customerProblem", "demandEvidence", "competition", "differentiation", "salesChannels"],
-    "finance": ["initialInvestment", "availableCapital", "unitCost", "sellingPrice", "expectedSales", "revenueAssumptions", "monthlyExpenses", "requestedFunding"],
-    "operations": ["equipment", "suppliers", "capacity", "skills", "staffing", "distribution"],
+    "finance": ["initialInvestment", "availableCapital", "unitCost", "sellingPrice", "expectedSales", "revenueAssumptions", "monthlyExpenses", "requestedFunding", "fundingSources"],
+    "operations": ["equipment", "suppliers", "capacity", "skills", "staffing", "distribution", "rawMaterials"],
     "risk": ["marketRisks", "financialRisks", "operationalRisks", "mitigation", "compliance"],
 }
 FIELDS = [m + "." + k for m, keys in MODULES.items() for k in keys]
-FINANCIAL = set("finance." + k for k in MODULES["finance"])
+FINANCIAL = set("finance." + k for k in MODULES["finance"] if k!="fundingSources")
 
 class Claim(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -69,6 +69,9 @@ def validate_facts(extraction, sources):
                 source = by_id.get(claim.source_id)
                 if not source:
                     errors.append("Unknown source reference")
+                    continue
+                if "OVERWRITTEN_ANSWERS" in source.get("documentWarnings",[]):
+                    errors.append("Overwritten document answers require explicit clarification")
                     continue
                 english, original = source["english"], source["original"]
                 if normalized(claim.evidence) not in normalized(english) or normalized(claim.value) not in normalized(claim.evidence):
@@ -129,7 +132,7 @@ async def extract(sources, _split=True):
 
     schema = Extraction.model_json_schema()
     schema["properties"]["facts"] = {"type": "object", "properties": {k: {"$ref": "#/$defs/ExtractedFact"} for k in FIELDS}, "required": FIELDS, "additionalProperties": False}
-    raw = await QwenService.generate(STRICT_PROMPT + " Use only these field paths. Include all fields. Each claim.value must be an exact excerpt within claim.evidence from source.english, with its source_id. Missing fields have no claims. List ALL contradictory claims. amount/currency/unit must be null unless explicit. Preserve estimates as UNCLEAR. A source with correctsField is an explicit beneficiary correction and supersedes older statements ONLY for that field. Use that source as evidence for the corrected field. Otherwise retain all independent source conflicts. Editing a response replaces the same source id.", {"fields": FIELDS, "sources": sources}, schema)
+    raw = await QwenService.generate(STRICT_PROMPT + " Use only these field paths. This may be a completed questionnaire. Question/prompt text is never a beneficiary answer. Scenario names, accuracy labels and template examples never determine facts or score. Map each submitted answer by its meaning, never by question number or row position. EMPTY, blank, unknown and irrelevant answers supply no facts. Changed questions do not retain the old field meaning. Deleted or overwritten alternatives are conflicting until explicitly clarified. Personal profile Category (General, SC, ST, OBC) is not business category. Phone numbers, ages and postal codes are not money. Revenue is not profit or sales quantity. Raw materials and suppliers are different fields. Funding sources do not imply loan approval. Include all fields. Each claim.value must be an exact excerpt within claim.evidence from source.english, with its source_id. Missing fields have no claims. List ALL contradictory claims. amount/currency/unit must be null unless explicit. Preserve estimates as UNCLEAR. A source with correctsField is an explicit beneficiary correction and supersedes older statements ONLY for that field. Use that source as evidence for the corrected field. Otherwise retain all independent source conflicts. Editing a response replaces the same source id.", {"fields": FIELDS, "sources": sources}, schema)
     parsed = Extraction.model_validate(raw)
     if set(parsed.facts) != set(FIELDS):
         raise ValueError("Model extraction omitted or added business fields")
@@ -198,6 +201,8 @@ FIELD_MEANINGS={
  'finance.expectedSales':'Explicit planned sales volume with quantity and period; do not convert revenue into quantity.',
  'finance.revenueAssumptions':'Explicit projected revenue and its assumptions; not profit or funding.',
  'finance.monthlyExpenses':'Explicit monthly operating costs; not startup investment or daily/unit cost.',
+ 'operations.rawMaterials':'Materials or consumables used to deliver this business product/service; not supplier names.',
+ 'finance.fundingSources':'Proposed sources of finance and repayment reasoning; never approved funding.',
  'finance.requestedFunding':'Funding requested, not funding approved or total startup investment.',
 }
 

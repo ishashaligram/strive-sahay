@@ -1,3 +1,5 @@
+> **Provided dataset support:** [dataset behavior and service requirements](docs/DATASET_BEHAVIOR.md). Run `scripts/audit_dataset.py` with the three ZIP paths for an offline audit; it never imports sample answers into live records. The language path now includes Odia, and the form schema includes raw materials and proposed funding sources.
+
 > **Current presentation login:** choose a role, Register with name and phone number, then enter the six-digit OTP displayed on screen. No SMS is sent. Existing users choose Sign in. All three presentation roles use a separate `backend/presentation.sqlite3` database; the original screening database remains separate. See [phone login contract](docs/FRONTEND_BACKEND_CONTRACT.md#presentation-phone-login). Assessor assignment is automatic within capacity with program-manager reassignment.
 
 **Latest frontend-only pass:** [FRONTEND_HANDOFF.md](FRONTEND_HANDOFF.md) and [API mapping contract](docs/FRONTEND_BACKEND_CONTRACT.md). Backend integration is deferred.

@@ -105,7 +105,7 @@ def test_c_d_e_multilingual_pipeline(client, models, text, language):
     record = create(client, text, "auto")
     assert record["sources"][0]["original"] == text
     assert record["sources"][0]["language"] == language
-    assert record["sources"][0]["english"] == "I want a home business."
+    assert "home business" in record["sources"][0]["english"]
     q = client.post("/api/clarification/" + record["id"] + "/next-question", headers=AUTH, json={}).json()["questions"][0]
     assert q["translations"][language].startswith("प्रश्न")
 

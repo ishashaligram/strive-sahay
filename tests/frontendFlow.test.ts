@@ -125,3 +125,11 @@ test('beneficiary is not asked to choose the business category',()=>{
  assert.doesNotMatch(html,/name="trade"/);
  assert.doesNotMatch(html,/field_overview.trade/);
 });
+
+test('Odia forms contain native labels and recognize Odia numeric metadata',()=>{
+ const html=renderToStaticMarkup(React.createElement(StructuredBusinessForm,{language:'or',onSubmit:()=>{},onClose:()=>{}}));
+ assert.match(html,/ଉତ୍ପାଦ ବା ସେବା/);
+ assert.match(html,/କଞ୍ଚାମାଲ/);
+ assert.equal(validateDraft({'finance.unitCost':{value:'ମୂଲ୍ୟ ୬୦',amount:60}}),null);
+ assert.equal(fieldCopy.or.length,FIELD_IDS.length);
+});

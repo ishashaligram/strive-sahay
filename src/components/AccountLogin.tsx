@@ -1,104 +1,45 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth, firebaseConfigured } from '../services/firebase';
-import { ui } from '../services/uiI18n';
-import { api } from '../services/screeningApi';
-import { SupportedLanguage } from '../types';
+import {ui} from '../services/uiI18n';
+import React,{useEffect,useState} from 'react';
+import {Link,useNavigate} from 'react-router-dom';
+import {api} from '../services/screeningApi';
+import {SupportedLanguage,UserRole} from '../types';
 
-type PortalRole = 'beneficiary' | 'assessor' | 'admin';
-
-export function AccountLogin({ role, onLoginSuccess, currentLang, onLanguageChange }: {
-  role: PortalRole;
-  onLoginSuccess: (user: { role: PortalRole; id: string; name: string }) => void;
-  currentLang?: SupportedLanguage;
-  onLanguageChange?: (lang: SupportedLanguage) => void;
-}) {
-  const language = role === 'beneficiary' ? (currentLang || 'en') : 'en';
-  const t = ui(language);
-  const navigate = useNavigate();
-  const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  const friendlyError = (value: unknown) => {
-    const message = value instanceof Error ? value.message : 'Authentication failed. Please try again.';
-    if (message.includes('auth/invalid-credential') || message.includes('auth/wrong-password') || message.includes('auth/user-not-found')) return 'Email or password is incorrect.';
-    if (message.includes('auth/email-already-in-use')) return 'This email is already registered. Switch to Sign in.';
-    if (message.includes('auth/weak-password')) return 'Choose a password with at least 6 characters.';
-    if (message.includes('auth/invalid-email')) return 'Enter a valid email address.';
-    if (message.includes('auth/too-many-requests')) return 'Too many attempts. Wait a little and try again.';
-    return message;
-  };
-
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setError('');
-    sessionStorage.removeItem('screening_access_token');
-
-    try {
-      if (!firebaseConfigured) {
-        throw new Error('Firebase configuration is missing. Add VITE_FIREBASE_API_KEY, VITE_FIREBASE_PROJECT_ID and VITE_FIREBASE_APP_ID to the project root .env.local file.');
-      }
-      if (mode === 'register') {
-        if (role !== 'beneficiary') throw new Error('Only beneficiaries can self-register. Contact the administrator for staff access.');
-        if (fullName.trim().length < 2) throw new Error('Enter your full name.');
-
-        // If Auth creation succeeded earlier but the backend was temporarily offline,
-        // allow the same user to sign in and retry server-side Firestore provisioning.
-        try {
-          await createUserWithEmailAndPassword(auth, email.trim(), password);
-        } catch (creationError) {
-          const code = (creationError as { code?: string }).code;
-          if (code !== 'auth/email-already-in-use') throw creationError;
-          await signInWithEmailAndPassword(auth, email.trim(), password);
-        }
-        const idToken = await auth.currentUser!.getIdToken(true);
-        sessionStorage.setItem('screening_access_token', idToken);
-        await api('/auth/register', { display_name: fullName.trim(), preferred_language: language });
-      } else {
-        await signInWithEmailAndPassword(auth, email.trim(), password);
-      }
-
-      const idToken = await auth.currentUser!.getIdToken(true);
-      sessionStorage.setItem('screening_access_token', idToken);
-      const user = await api<{ id: string; role: PortalRole; name?: string }>('/session');
-      if (user.role !== role) {
-        throw new Error(`This Firebase account is assigned to the ${user.role} portal, not ${role}.`);
-      }
-
-      if (role === 'beneficiary' && currentLang) {
-        await api('/profile', { preferred_language: currentLang }).catch(() => undefined);
-      }
-      onLoginSuccess({ id: user.id, role: user.role, name: user.name || email.trim() });
-      sessionStorage.setItem('screening_access_token', await auth.currentUser!.getIdToken());
-      navigate(role === 'beneficiary' ? '/beneficiary/dashboard' : `/${role}/dashboard`);
-    } catch (submitError) {
-      sessionStorage.removeItem('screening_access_token');
-      await signOut(auth).catch(() => undefined);
-      setError(friendlyError(submitError));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return <div lang={language} className="min-h-screen bg-slate-900 text-white">
-    <header className="border-b border-slate-800 p-5 flex justify-between"><a href="/" className="font-extrabold text-xl">STRIVE SAHAY</a><button onClick={() => navigate('/')} className="text-sm text-slate-300">{t('Role selection')}</button></header>
-    <main className="max-w-lg mx-auto p-6 pt-16"><form className="bg-slate-800 rounded-3xl p-8 shadow-2xl border border-slate-700 space-y-5" onSubmit={submit}>
-      <p className="text-teal-400 uppercase text-xs tracking-wider font-bold">Firebase secure account</p>
-      <h1 className="text-2xl font-extrabold capitalize">{mode === 'register' ? 'Beneficiary registration' : role === 'beneficiary' ? t('Beneficiary Login') : role === 'admin' ? 'Admin Login' : 'Assessor Login'}</h1>
-      <p className="text-sm text-slate-300">Sign in with your Firebase email and password. Portal access is determined by the role assigned in Firestore.</p>
-      {onLanguageChange && <label className="block text-sm">{t('language')}<select className="block w-full rounded-xl p-3 mt-2 bg-slate-900 border border-slate-600" value={currentLang} onChange={event => onLanguageChange(event.target.value as SupportedLanguage)}><option value="en">English</option><option value="hi">हिन्दी</option><option value="mr">मराठी</option><option value="te">తెలుగు</option><option value="ta">தமிழ்</option><option value="kn">ಕನ್ನಡ</option><option value="bn">বাংলা</option></select></label>}
-      {mode === 'register' && <label className="block text-sm">Full name<input type="text" autoComplete="name" required minLength={2} className="block w-full rounded-xl p-3 mt-2 bg-slate-900 border border-slate-600" value={fullName} onChange={event => setFullName(event.target.value)} /></label>}
-      <label className="block text-sm">Email<input type="email" autoComplete="email" required className="block w-full rounded-xl p-3 mt-2 bg-slate-900 border border-slate-600" value={email} onChange={event => setEmail(event.target.value)} /></label>
-      <label className="block text-sm">Password<input type="password" autoComplete={mode === 'register' ? 'new-password' : 'current-password'} required minLength={6} className="block w-full rounded-xl p-3 mt-2 bg-slate-900 border border-slate-600" value={password} onChange={event => setPassword(event.target.value)} /></label>
-      {error && <p role="alert" className="bg-red-950 text-red-200 p-3 rounded-xl text-sm">{error}</p>}
-      <button disabled={busy} className="bg-teal-500 text-slate-950 font-bold p-3 rounded-xl w-full disabled:opacity-50">{busy ? 'Connecting securely…' : mode === 'register' ? 'Create beneficiary account' : t('Sign in')}</button>
-      {role === 'beneficiary' && <button type="button" disabled={busy} className="w-full text-sm text-teal-300 hover:text-teal-200 disabled:opacity-50" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}>{mode === 'login' ? 'New beneficiary? Create an account' : 'Already registered? Sign in'}</button>}
-    </form></main>
-  </div>;
+type Challenge={challenge_id:string;demo_otp:string;expires_in:number;resend_after:number};
+export function AccountLogin({role,onLoginSuccess,currentLang,onLanguageChange}:{role:UserRole;onLoginSuccess:(user:{role:UserRole;id:string;name:string})=>void;currentLang?:SupportedLanguage;onLanguageChange?:(lang:SupportedLanguage)=>void}){
+ const language=role==='beneficiary'?(currentLang||'en'):'en',t=ui(language),navigate=useNavigate();
+ const [mode,setMode]=useState<'login'|'register'>('login');
+ const [phone,setPhone]=useState(''),[name,setName]=useState(''),[otp,setOtp]=useState('');
+ const [challenge,setChallenge]=useState<Challenge|null>(null),[wait,setWait]=useState(0);
+ const [busy,setBusy]=useState(false),[error,setError]=useState('');
+ useEffect(()=>{setChallenge(null);setOtp('');setError('');setMode('login');},[role]);
+ useEffect(()=>{if(wait<=0)return;const timer=window.setTimeout(()=>setWait(v=>v-1),1000);return()=>window.clearTimeout(timer);},[wait]);
+ const requestCode=async()=>{const result=await api<Challenge>('/auth/request-otp',{phone,role,mode,name,language});if(!result?.challenge_id||!/^\d{6}$/.test(result.demo_otp))throw new Error('The login service returned incomplete data. Please retry.');setChallenge(result);setWait(result.resend_after);setOtp('');};
+ const submit=async(e:React.FormEvent)=>{
+  e.preventDefault();setBusy(true);setError('');
+  try{
+   if(!challenge){await requestCode();return;}
+   const result=await api<{session_token:string;user:{id:string;name:string;role:UserRole}}>('/auth/verify-otp',{challenge_id:challenge.challenge_id,otp});
+   if(!result?.session_token||result.user?.role!==role||!result.user.id)throw new Error('Please sign in again for the selected role.');
+   onLoginSuccess(result.user);sessionStorage.setItem('screening_access_token',result.session_token);
+   if(role==='beneficiary')await api('/profile',{preferred_language:language}).catch(()=>{});
+   navigate('/'+role+'/dashboard');
+  }catch(e){setError(t((e as Error).message,{defaultValue:(e as Error).message}));}finally{setBusy(false);}
+ };
+ const roleLabel=role==='beneficiary'?t('Beneficiary'):role==='assessor'?t('Assessor'):t('Program manager');
+ return <div lang={language} className="min-h-screen bg-slate-900 text-white">
+  <header className="border-b border-slate-800 p-5 flex justify-between"><Link to="/" className="font-extrabold text-xl">STRIVE SAHAY</Link><Link to="/" className="text-sm text-slate-300">{t('Role selection')}</Link></header>
+  <main className="max-w-lg mx-auto p-6 pt-10"><form onSubmit={submit} className="bg-slate-800 rounded-3xl p-6 sm:p-8 border border-slate-700 space-y-5">
+   <p className="text-teal-400 text-sm font-semibold">{roleLabel}</p><h1 className="text-2xl font-extrabold">{t(challenge?'Verify OTP':mode==='register'?'Register':'Sign in')}</h1>
+   <p className="bg-amber-950/50 border border-amber-700 rounded-xl p-3 text-sm text-amber-100">{t('demoPhoneNotice')}</p>
+   {!challenge&&<div className="grid grid-cols-2 rounded-xl border border-slate-600 overflow-hidden">{(['login','register'] as const).map(value=><button key={value} type="button" disabled={busy} aria-pressed={mode===value} className={'p-3 '+(mode===value?'bg-teal-500 text-slate-950 font-bold':'bg-slate-900')} onClick={()=>{setMode(value);setError('');}}>{t(value==='login'?'Sign in':'Register')}</button>)}</div>}
+   {onLanguageChange&&!challenge&&<label className="block">{t('language')}<select className="block w-full rounded-xl p-3 mt-2 bg-slate-900 border border-slate-600" value={language} onChange={e=>onLanguageChange(e.target.value as SupportedLanguage)}>{Object.entries({en:'English',hi:'हिन्दी',mr:'मराठी',te:'తెలుగు',ta:'தமிழ்',kn:'ಕನ್ನಡ',bn:'বাংলা',or:'ଓଡ଼ିଆ'}).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>}
+   {!challenge?<>{mode==='register'&&<label className="block">{t('Full name')}<input required autoComplete="name" maxLength={200} className="block w-full rounded-xl p-3 mt-2 bg-slate-900 border border-slate-600" value={name} onChange={e=>setName(e.target.value)}/></label>}<label className="block">{t('Phone number')}<input type="tel" inputMode="tel" autoComplete="tel" required minLength={10} maxLength={20} placeholder="9876543210" className="block w-full rounded-xl p-3 mt-2 bg-slate-900 border border-slate-600" value={phone} onChange={e=>setPhone(e.target.value)}/></label></>:<>
+    <p>{t('Phone number')}: {phone}</p><div role="status" className="bg-teal-950 border border-teal-700 p-4 rounded-xl text-center"><p className="text-sm">{t('On-screen demo OTP')}</p><strong className="block text-3xl tracking-[0.3em] mt-2">{challenge.demo_otp}</strong><p className="text-xs mt-2">{t('otpExpiry')}</p></div>
+    <label className="block">{t('Enter OTP')}<input required autoFocus inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} className="block w-full rounded-xl p-3 mt-2 bg-slate-900 border border-slate-600 tracking-widest" value={otp} onChange={e=>setOtp(e.target.value.replace(/\D/g,''))}/></label>
+    <div className="flex justify-between gap-3 text-sm"><button type="button" disabled={busy} className="underline" onClick={()=>{setChallenge(null);setError('');setOtp('');}}>{t('Change phone number')}</button><button type="button" disabled={busy||wait>0} className="underline disabled:opacity-50" onClick={async()=>{setBusy(true);setError('');try{await requestCode();}catch(e){setError(t((e as Error).message,{defaultValue:(e as Error).message}));}finally{setBusy(false);}}}>{t('Resend OTP')}{wait>0?' ('+wait+'s)':''}</button></div>
+   </>}
+   {error&&<p role="alert" className="bg-red-950 text-red-200 p-3 rounded-xl">{error}</p>}
+   <button disabled={busy} className="bg-teal-500 text-slate-950 font-bold p-3 rounded-xl w-full disabled:opacity-50">{t(busy?'Please wait…':challenge?'Verify and continue':'Get OTP')}</button>
+  </form></main>
+ </div>;
 }

@@ -171,3 +171,12 @@ PDF parsing now removes overprinted duplicate characters and places text lines a
 After exact source-quote and original-number validation, extracted PROVIDED claims receive a separate Qwen field-to-evidence mapping check. A source quotation must establish the meaning of its specific field: selling price is not unit cost, monthly expenses are not investment, and sample/template figures are not beneficiary evidence. Unsupported mappings become UNCLEAR with no displayed value. Incomplete verification fails rather than accepting unchecked fields. This is a model-assisted check and requires the real Qwen service; it is not a guarantee against every extraction error.
 
 `record.category` contains `{name,status,evidence,sourceField,method}`. `record.trade` is automatically derived from the validated `overview.productService`, using the existing program trade vocabulary and product/service keywords in seven languages. The category is derived metadata, not an invented beneficiary fact. Multiple matches or no clear match leave the category unresolved. Neither the form nor generated missing-field questions require the beneficiary to choose a trade. Further product/service details can resolve ambiguity. Category detection is recalculated after extraction, product edits, clarification answers, and rejected facts.
+
+
+## Dataset adaptation update
+
+See `DATASET_BEHAVIOR.md` for the actual 55-file audit and scenario expectations. Schema additions: `operations.rawMaterials` and `finance.fundingSources`. ISO input/output code `or` maps to IndicTrans2 `ory_Orya`. Language menus now include Odia. Some older Odia UI messages use English fallback; live translated reports remain provider-driven.
+
+Document upload responses include a `warnings` array. `OVERWRITTEN_ANSWERS` is retained with the preserved media and attached to extraction sources; affected values need explicit clarification. Damaged text with NUL/replacement/CID characters is routed to OCR and is not repaired by deleting missing letters. If OCR remains unreadable, processing stops with an actionable error.
+
+For speech, multipart `file` retains its actual filename/MIME type and may contain MP4 audio. The gateway receives `language` or `auto`. It returns `original_transcript`, `detected_language`, optional confidence, and `reviewRequired: true`. No dataset transcript or answer is substituted for unavailable recognition.

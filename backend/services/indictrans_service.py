@@ -4,7 +4,7 @@ import re
 import unicodedata
 import httpx
 
-LANGUAGES = {"en": "eng_Latn", "hi": "hin_Deva", "mr": "mar_Deva", "ta": "tam_Taml", "te": "tel_Telu", "kn": "kan_Knda", "bn": "ben_Beng"}
+LANGUAGES = {"en": "eng_Latn", "hi": "hin_Deva", "mr": "mar_Deva", "ta": "tam_Taml", "te": "tel_Telu", "kn": "kan_Knda", "bn": "ben_Beng", "or": "ory_Orya"}
 
 def numbers(text):
     text = "".join(str(unicodedata.digit(c)) if c.isdigit() else c for c in text)
@@ -30,3 +30,27 @@ class IndicTransService:
         if sorted(numbers(text)) != sorted(numbers(translated)):
             raise ValueError("Translation changed numeric quantities; review source language and retry")
         return translated
+
+
+async def translate_mixed_to_english(text,primary_language):
+    """Keep English prompts and independently translate Indic answer runs."""
+    def language(char):
+        code=ord(char)
+        if 0x0900<=code<=0x097f:return primary_language if primary_language in ('hi','mr') else 'hi'
+        for start,end,lang in [(0x0980,0x09ff,'bn'),(0x0b00,0x0b7f,'or'),(0x0b80,0x0bff,'ta'),(0x0c00,0x0c7f,'te'),(0x0c80,0x0cff,'kn')]:
+            if start<=code<=end:return lang
+        return 'en' if char.isascii() and char.isalpha() else None
+    runs=[];current='';active=None
+    for char in text:
+        detected=language(char)
+        if detected and active and detected!=active:
+            runs.append((active,current));current=''
+        if detected:active=detected
+        current+=char
+    if current:runs.append((active or primary_language,current))
+    translated=[]
+    for lang,run in runs:
+        translated.append(run if lang=='en' or not run.strip() else await IndicTransService.translate(run,lang,'en'))
+    result=' '.join(translated)
+    if sorted(numbers(text))!=sorted(numbers(result)):raise ValueError('Mixed-language translation changed numeric quantities')
+    return result

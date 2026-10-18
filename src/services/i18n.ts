@@ -1,3 +1,4 @@
+import {ODIA_UI} from './odia';
 import { SupportedLanguage } from '../types';
 
 export interface LanguageOption {
@@ -15,9 +16,11 @@ export const AVAILABLE_LANGUAGES: LanguageOption[] = [
   { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்', subtext: 'தமிழ்நாடு மற்றும் புதுச்சேரி' },
   { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ', subtext: 'ಕರ್ನಾಟಕ' },
   { code: 'bn', name: 'Bengali', nativeName: 'বাংলা', subtext: 'পশ্চিমবঙ্গ ও ত্রিপুরা' },
+  {code:'or',name:'Odia',nativeName:'ଓଡ଼ିଆ',subtext:'ଓଡ଼ିଶା'},
 ];
 
 export const translations: Record<SupportedLanguage, Record<string, string>> = {
+  or:{},
   en: {
     appTitle: 'STRIVE SAHAY',
     appSubtitle: 'AI-Powered Business Idea Screening & Mentoring',
@@ -1245,6 +1248,7 @@ export const translations: Record<SupportedLanguage, Record<string, string>> = {
   },
 };
 
+translations.or={...translations.en,...ODIA_UI};
 const LANG_STORAGE_KEY = 'strive_sahay_user_lang_pref';
 
 export const getSavedLanguage = (): SupportedLanguage => {
