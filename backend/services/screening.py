@@ -148,10 +148,12 @@ async def extract(sources, _split=True):
 
     schema = Extraction.model_json_schema()
     if os.getenv('QWEN_MODEL')=='local-business-1.5b':
-        compact_schema={'type':'object','properties':{'claims':{'type':'array','maxItems':32,'items':{'type':'object','properties':{'field':{'type':'string','enum':FIELDS},'value':{'type':'string'},'source_id':{'type':'string'},'uncertain':{'type':'boolean'}},'required':['field','value','source_id','uncertain'],'additionalProperties':False}}},'required':['claims'],'additionalProperties':False}
+        claim_limit=min(32,max(4,sum(len(source['english']) for source in sources)//80))
+        compact_schema={'type':'object','properties':{'claims':{'type':'array','maxItems':claim_limit,'items':{'type':'object','properties':{'field':{'type':'string','enum':FIELDS},'value':{'type':'string','minLength':1,'maxLength':500},'source_id':{'type':'string'},'uncertain':{'type':'boolean'}},'required':['field','value','source_id','uncertain'],'additionalProperties':False}}},'required':['claims'],'additionalProperties':False}
         raw=await QwenService.generate('Extract explicitly stated business facts. Return only fields actually answered by the source; omit every missing field. Copy a short exact source excerpt as value. Use the exact source id. Do not infer facts from questions. Mark uncertain true only for an ambiguous claim. Product or service means what the business sells. Proposed location is where the business operates. Target customers are who buys.',{'fields':FIELDS,'sources':sources},compact_schema)
         mapped={key:{'status':'MISSING','claims':[]} for key in FIELDS}
         for claim in raw['claims']:
+            if not isinstance(claim.get('value'),str) or not claim['value'].strip():continue
             key=claim['field']
             if key not in mapped:raise ValueError('Unsupported extracted field')
             fact=mapped[key]
@@ -160,6 +162,8 @@ async def extract(sources, _split=True):
         return await verify_field_mapping(validate_facts(Extraction.model_validate({'facts':mapped}),sources),sources)
     schema["properties"]["facts"] = {"type": "object", "properties": {k: {"$ref": "#/$defs/ExtractedFact"} for k in FIELDS}, "required": FIELDS, "additionalProperties": False}
     raw = await QwenService.generate(STRICT_PROMPT + " Use only these field paths. This may be a completed questionnaire. Question/prompt text is never a beneficiary answer. Scenario names, accuracy labels and template examples never determine facts or score. Map each submitted answer by its meaning, never by question number or row position. EMPTY, blank, unknown and irrelevant answers supply no facts. Changed questions do not retain the old field meaning. Deleted or overwritten alternatives are conflicting until explicitly clarified. Personal profile Category (General, SC, ST, OBC) is not business category. Phone numbers, ages and postal codes are not money. Revenue is not profit or sales quantity. Raw materials and suppliers are different fields. Funding sources do not imply loan approval. Include all fields. Each claim.value must be an exact excerpt within claim.evidence from source.english, with its source_id. Missing fields have no claims. List ALL contradictory claims. amount/currency/unit must be null unless explicit. Preserve estimates as UNCLEAR. A source with correctsField is an explicit beneficiary correction and supersedes older statements ONLY for that field. Use that source as evidence for the corrected field. Otherwise retain all independent source conflicts. Editing a response replaces the same source id.", {"fields": FIELDS, "sources": sources}, schema)
+    for fact in raw.get("facts",{}).values():
+        if fact.get("status")=="MISSING":fact["claims"]=[]
     parsed = Extraction.model_validate(raw)
     if set(parsed.facts) != set(FIELDS):
         raise ValueError("Model extraction omitted or added business fields")

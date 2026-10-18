@@ -269,7 +269,7 @@ async def process_text(req: TextRequest, user=Depends(account)):
         raise HTTPException(403, "Beneficiary account required")
     if req.interaction_language and req.interaction_language not in LANGUAGES:
         raise HTTPException(422, "Unsupported interaction language")
-    src = await source(req.text, req.language, "pitch")
+    src = await source(req.text, req.interaction_language if req.language=="auto" and req.interaction_language else req.language, "pitch")
     record = {"id": str(uuid.uuid4()), "owner": user["id"], "assessor": user.get("assessor_id"), "title": req.title, "inputType": req.input_type, "language": req.interaction_language or src["language"], "maxQuestions": int(os.getenv("MAX_QUESTIONS", "8")), "sources": [src], "questions": [], "facts": {}, "state": "DRAFT", "history": [{"state": "DRAFT", "at": now()}], "createdAt": now(), "revision": 0}
     record["mediaIds"] = validate_media(req.media_ids, user)
     src["documentWarnings"]=document_warnings(req.media_ids,user)

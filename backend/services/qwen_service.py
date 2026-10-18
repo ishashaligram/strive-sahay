@@ -37,6 +37,7 @@ class QwenService:
     async def _generate(system, data, schema):
         keyed_questions=None
         keyed_ratings=None
+        keyed_checks=None
         if os.getenv('QWEN_MODEL')=='local-business-1.5b':
             data=copy.deepcopy(data)
             if 'facts' in data:
@@ -53,6 +54,10 @@ class QwenService:
                     item['properties']['explanation']['maxLength']=240
                     properties[domain]=item
                 schema={'type':'object','properties':properties,'required':keyed_ratings,'additionalProperties':False}
+            if schema.get('title')=='Checks' and data.get('candidates'):
+                keyed_checks=[candidate['id'] for candidate in data['candidates']]
+                schema={'type':'object','properties':{key:{'type':'boolean'} for key in keyed_checks},'required':keyed_checks,'additionalProperties':False}
+                system+=' Return a boolean for each exact candidate ID in the response schema.'
             if schema.get('title')=='Report':
                 for key in ('strengths','weaknesses','recommendations'):
                     schema['properties'][key]['maxItems']=4
@@ -97,4 +102,5 @@ class QwenService:
         parsed=json.loads(raw)
         if keyed_questions:return {'questions':[parsed[key] for key in keyed_questions]}
         if keyed_ratings:return {'ratings':[parsed[key] for key in keyed_ratings]}
+        if keyed_checks:return {'checks':[{'id':key,'supported':parsed[key]} for key in keyed_checks]}
         return parsed

@@ -36,6 +36,10 @@ def explicit_answers(source):
 # Conservative speech/text anchors. Capture exact excerpts, never calculate or
 # use general business knowledge to fill a field.
 NARRATIVE=[
+ ('overview.productService',r'\b(?:I|we)\s+(?:want|plan|would like|intend)\s+to\s+(?:start|open|set up)\s+(?:an?\s+)?(.+?\b(?:business|shop|unit|service))(?:\s+in\b|[.,!?\n]|$)'),
+ ('overview.proposedLocation',r'\b(?:start|open|set up)\s+[^.!?\n]+?\b(?:business|shop|unit|service)\s+in\s+(.+?)(?:\s+(?:My|Our)\s+(?:customers|clients)\b|[.,!?\n]|$)'),
+ ('market.targetCustomers',r'\b(?:my|our)\s+(?:target\s+)?clients\s+(?:are|will be|include)\s+([^.!?\n]+)'),
+
  ('overview.productService',r'\b(?:I|we)\s+(?:sell|make|provide|offer|produce)\s+([^.!?\n]+)'),
  ('overview.productService',r'\b(?:my|our)\s+business\s+(?:is|will be)\s+(?!\s*(?:in|located)\b)([^.!?\n]+)'),
  ('overview.proposedLocation',r'\b(?:my|our|the)\s+(?:business|shop|unit)\s+(?:is|will be|operates?|is located)\s+(?:located\s+)?in\s+([^.!?\n]+)'),
