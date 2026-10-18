@@ -13,10 +13,18 @@ export const IdeaSubmissionModal = ({isOpen, onClose, currentLang, onSubmit}: {i
   const [mediaIds,setMediaIds]=useState<string[]>([]);
   const [kind,setKind] = useState<'text'|'audio'|'document'>('text');
   const [busy,setBusy] = useState('');
+  const [elapsed,setElapsed] = useState(0);
   const [error,setError] = useState('');
   const [documentWarnings,setDocumentWarnings]=useState<string[]>([]);
   const [recording,setRecording] = useState(false);
   const recorder = useRef(new AudioService());
+  useEffect(() => {
+    setElapsed(0);
+    if(!busy)return;
+    const started=Date.now();
+    const timer=window.setInterval(()=>setElapsed(Math.floor((Date.now()-started)/1000)),1000);
+    return ()=>window.clearInterval(timer);
+  },[busy]);
   useEffect(() => () => {recorder.current.cancelRecording();}, []);
   if (!isOpen) return null;
   const run = async (label: string, task: () => Promise<void>) => {
@@ -50,7 +58,7 @@ export const IdeaSubmissionModal = ({isOpen, onClose, currentLang, onSubmit}: {i
         {documentWarnings.length>0&&<p role="status" className="bg-amber-50 text-amber-900 p-3 rounded-xl">{t('overwrittenDocumentNotice')}</p>}
         <p className="text-xs text-slate-500">{t('reviewTranscriptNotice')}</p>
         {error && <p role="alert" className="text-red-700 bg-red-50 p-3 rounded-xl">{error}</p>}
-        {busy && <p role="status" className="text-teal-700">{busy}</p>}
+        {busy && <div role="status" className="text-teal-700"><p>{busy} {Math.floor(elapsed/60)}:{String(elapsed%60).padStart(2,'0')}</p><p className="text-sm text-slate-500">{t('Local AI checks extracted facts against your document. This can take a few minutes. Keep this window open.')}</p></div>}
         <button disabled={!!busy || recording} className="bg-teal-600 text-white p-3 rounded-xl disabled:opacity-50 flex gap-2"><Sparkles/>{t("Extract and review facts")}</button>
       </form>
     </div>
