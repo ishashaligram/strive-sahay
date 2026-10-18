@@ -44,10 +44,17 @@ export const LOCKED_STATES=new Set(['READY_FOR_ASSESSOR','SUBMITTED','ADMIN_REVI
 export function fieldName(key:string){return 'field_'+key.split('.').pop();}
 export function canSubmitForAssessment(record:ScreeningRecord){
  const score=record.finalScore;
- return record.state==='READY_FOR_ASSESSOR'&&!!score&&!score.stale&&score.assessmentType==='QWEN_EVIDENCE_RATING'&&score.overallScore>=7&&CRITICAL_FIELDS.every(key=>record.facts[key]?.confirmed&&record.facts[key]?.validation.valid&&record.facts[key]?.status==='PROVIDED');
+ return canFinalize(record)&&record.state==='READY_FOR_ASSESSOR'&&!!score&&!score.stale&&score.assessmentType==='QWEN_EVIDENCE_RATING'&&score.overallScore>=7&&CRITICAL_FIELDS.every(key=>record.facts[key]?.confirmed&&record.facts[key]?.validation.valid&&record.facts[key]?.status==='PROVIDED');
 }
 export function translationPending(language:string,localized:unknown){return language!=='en'&&!localized;}
 
 export function clearedFields(values:Record<string,FactDraft>,original:Record<string,FactDraft>){
  return Object.keys(original).filter(key=>Object.prototype.hasOwnProperty.call(values,key)&&original[key].value.trim()&&!values[key].value.trim());
+}
+
+export function unresolvedQuestions(record:ScreeningRecord){
+ return record.questions.filter(q=>q.status==='pending'||(q.status==='unknown'&&!(record.facts[q.field]?.confirmed&&record.facts[q.field]?.validation.valid&&record.facts[q.field]?.status==='PROVIDED')));
+}
+export function canFinalize(record:ScreeningRecord){
+ return !unresolvedQuestions(record).length&&CRITICAL_FIELDS.every(key=>record.facts[key]?.confirmed&&record.facts[key]?.validation.valid&&record.facts[key]?.status==='PROVIDED');
 }

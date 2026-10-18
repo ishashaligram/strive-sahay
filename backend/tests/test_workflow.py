@@ -319,3 +319,25 @@ def prepare_confirmed(client, record):
     assert response.status_code==200,response.text
     response=client.post("/api/submissions/"+record["id"]+"/ai-score",headers=AUTH,json={})
     assert response.status_code==200,response.text
+
+@pytest.mark.parametrize("payload", [{"answer":"unsaved draft","dont_know":True},{"answer":"I don't know","dont_know":False}])
+def test_unknown_answer_blocks_progress_and_does_not_store_draft_as_evidence(client, models, payload):
+    record = create(client)
+    sid = record["id"]
+    question = client.post(f"/api/clarification/{sid}/next-question", headers=AUTH, json={}).json()["questions"][0]
+    response = client.post(f"/api/clarification/{sid}/answer", headers=AUTH, json={"question_id":question["id"],**payload})
+    assert response.status_code == 200
+    saved = response.json()
+    assert saved["state"] == "CLARIFICATION"
+    assert saved["questions"][0]["status"] == "unknown"
+    assert saved["questions"][0]["answer"] == ""
+    assert saved["facts"][question["field"]]["value"] is None
+    assert not saved["facts"][question["field"]]["confirmed"]
+    assert client.post(f"/api/submissions/{sid}/finalize", headers=AUTH, json={}).status_code == 409
+    assert client.post(f"/api/submissions/{sid}/confirm", headers=AUTH, json={}).status_code == 409
+    assert client.post(f"/api/submissions/{sid}/submit-to-assessor", headers=AUTH, json={}).status_code == 409
+
+    next_round = client.post(f"/api/clarification/{sid}/round", headers=AUTH, json={})
+    assert next_round.status_code == 200
+    assert len(next_round.json()["questions"]) == len(saved["questions"])
+    assert next_round.json()["questions"][0]["status"] == "unknown"

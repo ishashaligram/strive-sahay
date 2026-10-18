@@ -464,7 +464,7 @@ def install_program(app, runtime):
         from services.screening import Question
         record=get_record(sid,user,True)
         runtime["editable"](record)
-        if any(q["status"]=="pending" for q in record["questions"]):return record
+        if runtime["unresolved_answers"](record):return record
         attempted={q["field"] for q in record["questions"] if q["status"]!="pending"}
         candidates=[k for k,f in record["facts"].items() if (not f.get("confirmed") or f["status"]!="PROVIDED") and k not in attempted]
         count=min(5,len(candidates),max(0,record.get("maxQuestions",8)-len(record["questions"])))

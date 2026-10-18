@@ -225,7 +225,7 @@ async def next_question(sid: str, user=Depends(account)):
     record = get_record(sid, user, True)
     if record["state"] not in ("PROVISIONALLY_SCORED", "CLARIFICATION"):
         raise HTTPException(409, "Provisional screening is required")
-    if any(q["status"] == "pending" for q in record["questions"]):
+    if unresolved_answers(record):
         return record
     candidates = remaining(record)
     if not candidates or len(record["questions"]) >= record.get("maxQuestions", int(os.getenv("MAX_QUESTIONS", "8"))):
@@ -249,6 +249,8 @@ async def answer(sid: str, req: AnswerRequest, user=Depends(account)):
     q = next((q for q in record["questions"] if q["id"] == req.question_id), None)
     if not q:
         raise HTTPException(404, "Question not found")
+    unknown_text = req.answer.strip().casefold().replace("’", "'").rstrip(".!।")
+    req.dont_know = req.dont_know or unknown_text in {"don't know", "i don't know", "dont know", "i dont know", "i do not know", "मुझे नहीं पता", "पता नहीं", "माहित नाही", "मला माहित नाही", "తెలియదు", "தெரியாது", "ಗೊತ್ತಿಲ್ಲ", "জানি না"}
     if not req.dont_know and not req.answer.strip():
         raise HTTPException(422, "Enter an answer or choose I don't know yet")
     sources = [s for s in record["sources"] if s["id"] != q["id"]]
@@ -260,10 +262,10 @@ async def answer(sid: str, req: AnswerRequest, user=Depends(account)):
             src["correctsField"] = q["field"]
         sources.append(src)
     facts = await extract(sources)
-    if q.get("correction") and req.dont_know:
+    if req.dont_know:
         fact = facts[q["field"]]
         fact.update({"status": "UNCLEAR", "value": None, "validation": {"valid": False, "errors": ["Beneficiary has withdrawn certainty about this field"]}})
-    q.update({"status": "unknown" if req.dont_know else "answered", "answer": req.answer, "answerLanguage": req.language, "answeredAt": now()})
+    q.update({"status": "unknown" if req.dont_know else "answered", "answer": "" if req.dont_know else req.answer, "answerLanguage": req.language, "answeredAt": now()})
     for key, fact in facts.items():
         old=record["facts"].get(key,{})
         fact["confirmed"]=bool(old.get("confirmed") and old.get("value")==fact.get("value") and fact["status"]=="PROVIDED")
@@ -280,14 +282,27 @@ async def answer(sid: str, req: AnswerRequest, user=Depends(account)):
     transition(record, "CLARIFICATION")
     return persist(record)
 
+def unresolved_answers(record):
+    unresolved = []
+    for question in record["questions"]:
+        fact = record["facts"].get(question["field"], {})
+        resolved = fact.get("confirmed") and fact.get("status") == "PROVIDED" and fact.get("validation", {}).get("valid")
+        if question["status"] == "pending" or (question["status"] == "unknown" and not resolved):
+            unresolved.append(question)
+    return unresolved
+
+
+def require_resolved_answers(record):
+    if unresolved_answers(record):
+        raise HTTPException(409, "Missing answers are still unresolved. Add and confirm the information or request mentoring help before continuing.")
+
 @app.post("/api/submissions/{sid}/finalize")
 async def finalize(sid: str, user=Depends(account)):
     record = get_record(sid, user, True)
     editable(record)
     if record["state"] not in ("PROVISIONALLY_SCORED", "CLARIFICATION", "FINAL_SCORED"):
         raise HTTPException(409, "Provisional screening is required")
-    if any(q["status"] == "pending" for q in record["questions"]):
-        raise HTTPException(409, "Answer or mark the current question unknown first")
+    require_resolved_answers(record)
     if globals().get("critical_missing") and critical_missing(record):
         raise HTTPException(409, "Critical confirmed information is missing. Complete the facts or request human clarification assistance.")
 
@@ -323,6 +338,9 @@ def confirm(sid: str, user=Depends(account)):
     record = get_record(sid, user, True)
     if record["state"] != "FINAL_SCORED" or not record.get("report"):
         raise HTTPException(409, "Review a final assessment before confirming")
+    require_resolved_answers(record)
+    if critical_missing(record):
+        raise HTTPException(409, "Complete and confirm the required business information first")
     record["confirmedAt"] = now()
     transition(record, "READY_FOR_ASSESSOR")
     return persist(record)
@@ -332,7 +350,8 @@ def submit(sid: str, user=Depends(account)):
     record = get_record(sid, user, True)
     if record["state"] != "READY_FOR_ASSESSOR" or not record.get("confirmedAt"):
         raise HTTPException(409, "Complete screening and confirm the final report first")
-    if critical_missing(record) or record.get("finalScore", {}).get("assessmentType") != "QWEN_EVIDENCE_RATING" or record["finalScore"].get("overallScore", 0) < float(os.getenv("SCREENING_THRESHOLD", "7")):
+    require_resolved_answers(record)
+    if record.get("finalScore", {}).get("stale") or critical_missing(record) or record.get("finalScore", {}).get("assessmentType") != "QWEN_EVIDENCE_RATING" or record["finalScore"].get("overallScore", 0) < float(os.getenv("SCREENING_THRESHOLD", "7")):
         raise HTTPException(409, "Formal review requires confirmed critical fields and a current AI score at or above the project-defined threshold. Human clarification assistance remains available.")
     return _formal_submit(record, user)
 

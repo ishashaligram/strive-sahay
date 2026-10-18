@@ -48,3 +48,14 @@ export function planHeading(title:string,language:SupportedLanguage){
  const headings:Record<string,string[]>={'Executive summary':['Overview'],'Business idea and problem':['field_productService','field_customerProblem'],'Product or service':['field_productService'],'Target customers':['field_targetCustomers'],'Market and competitors':['Market','field_competition'],'Unique selling proposition':['field_differentiation'],'Marketing and customer acquisition':['field_salesChannels'],'Operations and resources':['Operations','field_equipment'],'Startup investment':['field_initialInvestment'],'Monthly costs and revenue':['field_monthlyExpenses','field_revenueAssumptions'],'Profit and break-even scenarios':['Estimated monthly profit','Break-even quantity'],'Risks and mitigation':['Risk','field_mitigation'],'Funding and use of funds':['field_requestedFunding'],'Business launch roadmap':['Business readiness journey'],'Mentoring recommendations':['AI suggestions'],'Missing information and assumptions':['Remaining unknowns','Beneficiary estimate']};
  return headings[title]?.map(key=>t(key)).join(' / ')||title;
 }
+
+const simpleCopy:Record<string,[string,string]>={
+ en:["This answer is still missing. Add and confirm the information before continuing, or request mentoring help.","Share your idea, answer the missing details, and review your report."],
+ hi:["यह उत्तर अभी बाकी है। आगे बढ़ने से पहले जानकारी भरकर पुष्टि करें या मार्गदर्शन मांगें।","अपना विचार बताएं, बाकी जानकारी भरें और रिपोर्ट देखें।"],
+ mr:["हे उत्तर अजून बाकी आहे. पुढे जाण्यापूर्वी माहिती भरून पुष्टी करा किंवा मार्गदर्शन मागा.","तुमची कल्पना सांगा, उर्वरित माहिती भरा आणि अहवाल पहा."],
+ te:["ఈ సమాధానం ఇంకా కావాలి. కొనసాగడానికి ముందు వివరాలను జోడించి నిర్ధారించండి లేదా మార్గదర్శకత్వం కోరండి.","మీ ఆలోచన చెప్పండి, మిగిలిన వివరాలను పూరించండి, నివేదికను చూడండి."],
+ ta:["இந்த பதில் இன்னும் தேவை. தொடரும் முன் தகவலைச் சேர்த்து உறுதிப்படுத்தவும் அல்லது வழிகாட்டுதல் கோரவும்.","உங்கள் யோசனையைப் பகிர்ந்து, மீதமுள்ள விவரங்களை நிரப்பி, அறிக்கையைப் பாருங்கள்."],
+ kn:["ಈ ಉತ್ತರ ಇನ್ನೂ ಬೇಕಾಗಿದೆ. ಮುಂದುವರಿಯುವ ಮೊದಲು ಮಾಹಿತಿ ಸೇರಿಸಿ ದೃಢೀಕರಿಸಿ ಅಥವಾ ಮಾರ್ಗದರ್ಶನ ಕೋರಿರಿ.","ನಿಮ್ಮ ಆಲೋಚನೆ ಹಂಚಿಕೊಳ್ಳಿ, ಉಳಿದ ವಿವರಗಳನ್ನು ಭರ್ತಿ ಮಾಡಿ, ವರದಿ ನೋಡಿ."],
+ bn:["এই উত্তর এখনও বাকি। এগোনোর আগে তথ্য দিয়ে নিশ্চিত করুন অথবা সহায়তা চান।","আপনার ধারণা জানান, বাকি তথ্য পূরণ করুন এবং রিপোর্ট দেখুন।"]
+};
+for(const [language,copy] of Object.entries(simpleCopy))i18next.addResourceBundle(language,'translation',{missingAnswerNotice:copy[0],simpleWorkspaceHelp:copy[1]},true,true);

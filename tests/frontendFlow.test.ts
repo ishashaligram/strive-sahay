@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {StructuredBusinessForm} from '../src/components/StructuredBusinessForm.tsx';
-import {BUSINESS_FIELDS,changedFields,draftFromRecord,validateDraft,canSubmitForAssessment,LOCKED_STATES} from '../src/services/businessForm.ts';
+import {BUSINESS_FIELDS,changedFields,draftFromRecord,validateDraft,canSubmitForAssessment,LOCKED_STATES,canFinalize,unresolvedQuestions} from '../src/services/businessForm.ts';
 import {FIELD_IDS,fieldCopy,interfaceCopy,interfaceKeys,STATIC_RESOURCES} from '../src/services/frontendCopy.ts';
 import {ScreeningRecord} from '../src/services/screeningApi.ts';
 import {SupportedLanguage} from '../src/types/index.ts';
@@ -83,4 +83,18 @@ test('clearing a prefilled value is an explicit rejection, not a silently ignore
  const values={...original,'finance.unitCost':{...original['finance.unitCost'],value:''}};
  assert.deepEqual(clearedFields(values,original),['finance.unitCost']);
  assert.deepEqual(clearedFields(original,original),[]);
+});
+
+test('unknown answers block finalization until their field is supplied and confirmed',()=>{
+ const record=structuredClone(fixture);
+ for(const key of ['overview.productService','overview.proposedLocation','market.targetCustomers','finance.initialInvestment','finance.unitCost','finance.sellingPrice','finance.monthlyExpenses','finance.expectedSales'])record.facts[key]={...structuredClone(fixture.facts['finance.unitCost']),field:key};
+ record.questions=[{id:'unknown',field:'market.competition',status:'unknown',text:'Who are your competitors?',rationale:'',guidance:'',translations:{}}];
+ assert.equal(canFinalize(record),false);
+ assert.equal(unresolvedQuestions(record)[0].id,'unknown');
+ record.facts['market.competition']={...structuredClone(fixture.facts['finance.unitCost']),field:'market.competition',confirmed:false};
+ assert.equal(canFinalize(record),false);
+ record.facts['market.competition'].confirmed=true;
+ assert.equal(canFinalize(record),true);
+ record.questions[0].status='pending';
+ assert.equal(canFinalize(record),false);
 });
