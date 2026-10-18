@@ -1,4 +1,3 @@
-import {signOutFirebaseIfEnabled} from './services/sessionAuth';
 import React, {useState} from 'react';
 import {Routes,Route,Navigate,useNavigate,useLocation} from 'react-router-dom';
 import {SupportedLanguage,UserRole} from './types';
@@ -25,7 +24,7 @@ export default function App() {
   const [language,setLanguage]=useState<SupportedLanguage>(getSavedLanguage());
   const login=(next:{role:UserRole;id:string;name:string})=>{sessionStorage.removeItem('screening_access_token');storage.setActiveUser(next);setUser(next);};
   const changeLanguage=(lang:SupportedLanguage)=>{setLanguage(lang);saveLanguage(lang);if(sessionStorage.getItem('screening_access_token')){void api('/profile',{preferred_language:lang}).catch(()=>{});}};
-  const logout=()=>{void signOutFirebaseIfEnabled().catch(()=>{});void api('/auth/logout',{}).catch(()=>{});sessionStorage.removeItem('screening_access_token');storage.setActiveUser(null);setUser(null);navigate('/');};
+  const logout=()=>{void api('/auth/logout',{}).catch(()=>{});sessionStorage.removeItem('screening_access_token');storage.setActiveUser(null);setUser(null);navigate('/');};
   const dashboard=/\/(dashboard|mentor|improvement)$/.test(location.pathname);
   const view=location.pathname.includes('assessor')?'assessor':location.pathname.includes('admin')?'admin':location.pathname.includes('mentor')?'mentor':location.pathname.includes('improvement')?'improvement':'dashboard';
   return <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">

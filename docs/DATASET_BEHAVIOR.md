@@ -47,4 +47,4 @@ Live OCR, speech, extraction, translation and report quality remain unverified u
 
 ## Concurrent authentication integration
 
-The teammate's Firebase backend/token verification and email/password UI are preserved. `VITE_AUTH_MODE=firebase` selects that integration. The default `presentation` mode keeps the requested phone registration and displayed OTP in a separate database. Firebase SDK initialization is lazy so an unconfigured Firebase project cannot blank the presentation login. Firebase staff roles remain server assigned; presentation roles remain isolated demo identities. Real Firebase sign-in has not been verified without credentials.
+The teammate's Firebase backend/token verification and separate email/password component remain in the source. Public login screens always use the requested phone registration and displayed OTP for all three roles, with both Sign in and Register visible. Firebase environment settings cannot replace those screens or interfere with their session headers. Presentation identities and records remain isolated from existing data.
