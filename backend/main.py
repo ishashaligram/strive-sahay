@@ -17,9 +17,10 @@ from pydantic import BaseModel, Field, ConfigDict
 from dotenv import load_dotenv
 from services.qwen_service import QwenService
 from services.indictrans_service import IndicTransService, LANGUAGES
-from services.screening import extract, score, Question, Report
+from services.screening import extract, score, Question, Report, pending_assessment_domains
 from services.pdf_service import PDFProcessingService
 from services.whisper_service import FasterWhisperService
+from services.phone_auth import presentation_request, demo_path, install_phone_auth
 
 load_dotenv(Path(__file__).parent / ".env")
 app = FastAPI(title="STRIVE SAHAY evidence-based screening", version="3.0")
@@ -32,7 +33,7 @@ def now():
 
 @contextmanager
 def connection():
-    path = Path(os.getenv("DATABASE_PATH", str(Path(__file__).parent / "screening.sqlite3")))
+    path = Path(demo_path() if presentation_request.get() else os.getenv("DATABASE_PATH", str(Path(__file__).parent / "screening.sqlite3")))
     conn = sqlite3.connect(path, timeout=30)
     conn.execute("CREATE TABLE IF NOT EXISTS submissions (id TEXT PRIMARY KEY, owner TEXT NOT NULL, assessor TEXT, status TEXT NOT NULL, revision INTEGER NOT NULL, body TEXT NOT NULL)")
     try:
@@ -235,6 +236,7 @@ async def run_extraction(record):
     transition(record, "EXTRACTED")
     persist(record)
     record["provisionalScore"] = score(record["facts"])
+    record["provisionalScore"]["assessmentType"] = "EVIDENCE_COVERAGE_NOT_AI_RATING"
     record["currentScore"] = record["provisionalScore"]
     transition(record, "PROVISIONALLY_SCORED")
     return persist(record)
@@ -323,6 +325,8 @@ def unresolved_answers(record):
 
 
 def require_resolved_answers(record):
+    if pending_assessment_domains(record):
+        raise HTTPException(409, "Complete and confirm the AI clarification answers across all eight assessment categories before scoring or submitting.")
     if unresolved_answers(record):
         raise HTTPException(409, "Missing answers are still unresolved. Add and confirm the information or request mentoring help before continuing.")
 
@@ -485,3 +489,5 @@ async def review(sid: str, req: ReviewRequest, user=Depends(account)):
 
 from services.program import install_program
 install_program(app, globals())
+
+install_phone_auth(app, globals())

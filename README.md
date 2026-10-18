@@ -1,3 +1,5 @@
+> **Current presentation login:** choose a role, Register with name and phone number, then enter the six-digit OTP displayed on screen. No SMS is sent. Existing users choose Sign in. All three presentation roles use a separate `backend/presentation.sqlite3` database; the original screening database remains separate. See [phone login contract](docs/FRONTEND_BACKEND_CONTRACT.md#presentation-phone-login). Assessor assignment is automatic within capacity with program-manager reassignment.
+
 **Latest frontend-only pass:** [FRONTEND_HANDOFF.md](FRONTEND_HANDOFF.md) and [API mapping contract](docs/FRONTEND_BACKEND_CONTRACT.md). Backend integration is deferred.
 
 **Latest implementation:** See [DEMO_STATUS.md](DEMO_STATUS.md) for current behavior, tests, startup, database status, and limitations. This supersedes earlier workflow notes below.

@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from fastapi import Depends, HTTPException
-from services.screening import MODULES, FIELDS, score, DEFAULT_RUBRIC
+from services.screening import MODULES, FIELDS, score, DEFAULT_RUBRIC, pending_assessment_domains
 from services.financials import financials
 from services.qwen_service import QwenService
 
@@ -259,6 +259,8 @@ def install_program(app, runtime):
     async def ai_score(sid:str,user=Depends(account)):
         record=get_record(sid,user,True)
         runtime["editable"](record)
+        runtime["require_resolved_answers"](record)
+        if missing(record):raise HTTPException(409,"Complete and confirm the required business facts before assessment")
         confirmed={k:f for k,f in record["facts"].items() if f.get("confirmed") and f["validation"]["valid"]}
         if not confirmed:raise HTTPException(409,"Confirm supported business information first")
         class Rating(BaseModel):
@@ -270,18 +272,21 @@ def install_program(app, runtime):
         class Ratings(BaseModel):
             model_config=ConfigDict(extra="forbid")
             ratings:list[Rating]
-        raw=await QwenService.generate("Rate all eight domains from 0 to 5 using only supplied CONFIRMED information. Explain each rating and list the supporting field IDs. No supporting field means rating zero. Never infer facts, demand, profitability or readiness. Suggestions are not evidence.",{"facts":confirmed,"rubric":DEFAULT_RUBRIC,"financials":financials(record["facts"])},Ratings.model_json_schema())
+        raw=await QwenService.generate("Rate all eight domains from 0 to 5 using only supplied CONFIRMED information. Explain each rating and list the supporting field IDs. No supporting field means rating zero. Never infer facts, demand, profitability or readiness. Suggestions are not evidence. Assess the original pitch together with clarification answers. A vague or unsupported answer must not improve a rating. Use only fields belonging to each domain. Missing domain evidence limits the maximum rating proportionally.",{"facts":confirmed,"originalPitch":[{"id":s["id"],"text":s.get("english","")} for s in record["sources"] if s["id"]=="pitch"],"clarificationAnswers":[{"field":q["field"],"question":q["text"],"answer":q.get("answer"),"evidence":next((s.get("english") for s in record["sources"] if s["id"]==q["id"]),None)} for q in record["questions"] if q["status"]=="answered"],"rubric":DEFAULT_RUBRIC,"financials":financials(record["facts"])},Ratings.model_json_schema())
         ratings=Ratings.model_validate(raw).ratings
         if len(ratings)!=8 or {r.domain for r in ratings}!=set(DEFAULT_RUBRIC):raise ValueError("Model returned an incomplete eight-domain assessment")
         domains={}
         total=0
         for rating in ratings:
+            domain_fields=DEFAULT_RUBRIC[rating.domain][1]
+            if any(k not in domain_fields for k in rating.fields):raise ValueError("Model used evidence from a different assessment category")
             if any(k not in confirmed for k in rating.fields) or (rating.rating>0 and not rating.fields):raise ValueError("Model rating lacks confirmed evidence")
             weight=DEFAULT_RUBRIC[rating.domain][0]
+            rating.rating=min(rating.rating,5*len(set(rating.fields))/len(domain_fields))
             total+=rating.rating*weight*2
             domains[rating.domain]={"weight":weight,"rating":rating.rating,"supportedFields":rating.fields,"missingFields":[k for k in DEFAULT_RUBRIC[rating.domain][1] if k not in confirmed],"explanation":rating.explanation,"evidence":[confirmed[k]["claims"] for k in rating.fields]}
         critical=missing(record)
-        result={**score(record["facts"]),"overallScore":round(total,2),"domains":domains,"assessmentType":"QWEN_EVIDENCE_RATING","status":"PROVISIONAL" if critical else "FINAL","criticalMissing":critical,"scoreMeaning":"Qwen evidence-backed domain assessment; not an investment approval","at":now(),"version":len(record.get("assessmentVersions",[]))+1,"factRevision":record["revision"],"threshold":7}
+        result={**score({key:{**fact,"validation":{**fact["validation"],"valid":bool(fact.get("confirmed") and fact["validation"]["valid"])}} for key,fact in record["facts"].items()}),"overallScore":round(total,2),"domains":domains,"assessmentType":"QWEN_EVIDENCE_RATING","status":"PROVISIONAL" if critical else "FINAL","criticalMissing":critical,"scoreMeaning":"Qwen evidence-backed domain assessment; not an investment approval","at":now(),"version":len(record.get("assessmentVersions",[]))+1,"factRevision":record["revision"],"threshold":7}
         record.setdefault("assessmentVersions",[]).append(result)
         record["currentScore"]=result
         record["criticalMissing"]=critical
@@ -313,6 +318,7 @@ def install_program(app, runtime):
             settings=all_entities("capacity",db)
             accounts=[a for a in all_entities("account",db) if a["role"]=="assessor" and a.get("active",True)]
             environment=json.loads(runtime["os"].getenv("SCREENING_ACCOUNTS","{}"))
+            if runtime["presentation_request"].get():environment={}
             accounts += [a for a in environment.values() if a["role"]=="assessor" and not any(b["id"]==a["id"] for b in accounts)]
             candidates=[]
             for assessor in accounts:
@@ -465,14 +471,22 @@ def install_program(app, runtime):
         record=get_record(sid,user,True)
         runtime["editable"](record)
         if runtime["unresolved_answers"](record):return record
-        attempted={q["field"] for q in record["questions"] if q["status"]!="pending"}
-        candidates=[k for k,f in record["facts"].items() if (not f.get("confirmed") or f["status"]!="PROVIDED") and k not in attempted]
-        count=min(5,len(candidates),max(0,record.get("maxQuestions",8)-len(record["questions"])))
+        attempted={q["field"] for q in record["questions"]}
+        candidates=[]
+        for domain,(_,fields) in DEFAULT_RUBRIC.items():
+            if any(q["field"] in fields for q in record["questions"]):continue
+            eligible=[key for key in fields if key not in attempted]
+            if eligible:candidates.append(next((key for key in eligible if not record["facts"].get(key,{}).get("confirmed")),eligible[0]))
+        category_questions=bool(candidates)
+        if not candidates:candidates=[k for k,f in record["facts"].items() if (not f.get("confirmed") or f["status"]!="PROVIDED") and k not in attempted]
+        count=min(5,len(candidates)) if category_questions else min(5,len(candidates),max(0,max(8,record.get("maxQuestions",8))-len(record["questions"])))
+        candidates=candidates[:count]
         if not count:return record
+        record["maxQuestions"]=max(record.get("maxQuestions",8),len(record["questions"])+count)
         class Batch(BaseModel):
             questions:list[Question]
-        result=Batch.model_validate(await QwenService.generate("Generate exactly the requested count of distinct contextual clarification questions for this actual business. Select eligible field IDs only. Explain each question in simple English. Never supply invented answers, financial numbers or assumptions.",{"count":count,"eligibleFields":candidates,"facts":record["facts"],"previousQuestions":record["questions"]},Batch.model_json_schema()))
-        if len(result.questions)!=count or len({q.field for q in result.questions})!=count or any(q.field not in candidates for q in result.questions):raise ValueError("Question round contains repeated or unsupported fields")
+        result=Batch.model_validate(await QwenService.generate("Generate exactly the requested count of distinct contextual clarification questions for this actual business. Select eligible field IDs only. Explain each question in simple English. Never supply invented answers, financial numbers or assumptions.",{"count":count,"eligibleFields":candidates,"facts":record["facts"],"sources":record["sources"],"previousQuestions":record["questions"]},Batch.model_json_schema()))
+        if len(result.questions)!=count or len({q.field for q in result.questions})!=count or set(q.field for q in result.questions)!=set(candidates):raise ValueError("Question round contains repeated or unsupported fields")
         for q in result.questions:
             question={**q.model_dump(),"id":secrets.token_hex(8),"status":"pending","translations":{},"localizedGuidance":{},"localizedRationale":{}}
             for source_key,target_key in [("text","translations"),("guidance","localizedGuidance"),("rationale","localizedRationale")]:

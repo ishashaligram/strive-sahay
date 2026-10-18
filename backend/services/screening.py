@@ -172,3 +172,12 @@ def score(facts, final=False):
                 return {"status": "FINAL" if final else "PROVISIONAL", "overallScore": round(total, 2), "scoreMeaning": "Evidence coverage, not a profitability prediction", "completeness": round(100 * provided / len(facts)), "confidence": "Limited", "feasibility": "Incomplete assessment", "domains": domains, "unitContribution": None, "rubricVersion": "evidence-coverage-v1"}
             contribution = {"amount": float((Decimal(str(p["amount"])) - Decimal(str(c["amount"]))).quantize(Decimal("0.01"))), "currency": p["currency"], "unit": p["unit"], "label": "Unit contribution, before fixed expenses"}
     return {"status": "FINAL" if final else "PROVISIONAL", "overallScore": round(total, 2), "scoreMeaning": "Evidence coverage, not a profitability prediction", "completeness": round(100 * provided / len(facts)), "confidence": "Limited" if provided < len(facts) * .8 else "Evidence documented; human review required", "feasibility": "Incomplete assessment" if provided < len(facts) else "Requires human feasibility review", "domains": domains, "unitContribution": contribution, "rubricVersion": "evidence-coverage-v1"}
+
+
+def pending_assessment_domains(record):
+    return [domain for domain, (_, fields) in DEFAULT_RUBRIC.items()
+            if not any(q.get("status") == "answered" and q.get("field") in fields
+                       and record["facts"].get(q["field"], {}).get("confirmed")
+                       and record["facts"][q["field"]].get("status") == "PROVIDED"
+                       and record["facts"][q["field"]].get("validation", {}).get("valid")
+                       for q in record.get("questions", []))]

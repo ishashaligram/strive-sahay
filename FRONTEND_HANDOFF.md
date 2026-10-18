@@ -1,3 +1,5 @@
+> **Latest update:** access-token inputs have been replaced with phone Sign in/Register and an on-screen OTP for beneficiary, assessor, and program manager. Demo OTP records and sessions are isolated from the existing screening database. Verified: 58 frontend tests, 55 backend tests; seven live AI tests skipped. Production build passes. Account and OTP flow requires the local backend to be running. AI generation still requires the configured Qwen and translation services.
+
 # Frontend handoff for STRIVE SAHAY
 
 This pass changes the frontend and its development routing only. Backend files, databases, models, credentials and accounts were not changed.

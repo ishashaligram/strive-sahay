@@ -104,7 +104,7 @@ export const LandingPage: React.FC = () => {
                   </li>
                   <li className="flex items-center space-x-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 flex-shrink-0" />
-                    <span>Private account authentication</span>
+                    <span>Phone login and on-screen OTP</span>
                   </li>
                 </ul>
               </div>
@@ -150,7 +150,7 @@ export const LandingPage: React.FC = () => {
                   </li>
                   <li className="flex items-center space-x-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                    <span>Admin-approved credential access</span>
+                    <span>Role-based phone registration</span>
                   </li>
                 </ul>
               </div>
@@ -188,7 +188,7 @@ export const LandingPage: React.FC = () => {
                 <ul className="text-[11px] text-slate-400 space-y-1.5">
                   <li className="flex items-center space-x-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-                    <span>Local demonstration cohort analytics</span>
+                    <span>Cohort analytics and workload overview</span>
                   </li>
                   <li className="flex items-center space-x-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
@@ -196,7 +196,7 @@ export const LandingPage: React.FC = () => {
                   </li>
                   <li className="flex items-center space-x-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-                    <span>Legacy administration preview</span>
+                    <span>Hybrid assessor allocation</span>
                   </li>
                 </ul>
               </div>

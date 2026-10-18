@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {StructuredBusinessForm} from '../src/components/StructuredBusinessForm.tsx';
-import {BUSINESS_FIELDS,changedFields,draftFromRecord,validateDraft,canSubmitForAssessment,LOCKED_STATES,canFinalize,unresolvedQuestions} from '../src/services/businessForm.ts';
+import {BUSINESS_FIELDS,changedFields,draftFromRecord,validateDraft,canSubmitForAssessment,LOCKED_STATES,canFinalize,unresolvedQuestions,ASSESSMENT_DOMAINS} from '../src/services/businessForm.ts';
 import {FIELD_IDS,fieldCopy,interfaceCopy,interfaceKeys,STATIC_RESOURCES} from '../src/services/frontendCopy.ts';
-import {ScreeningRecord} from '../src/services/screeningApi.ts';
+import {ScreeningRecord,assertScreeningRecord} from '../src/services/screeningApi.ts';
 import {SupportedLanguage} from '../src/types/index.ts';
 import {ui} from '../src/services/uiI18n.ts';
 
@@ -94,7 +94,27 @@ test('unknown answers block finalization until their field is supplied and confi
  record.facts['market.competition']={...structuredClone(fixture.facts['finance.unitCost']),field:'market.competition',confirmed:false};
  assert.equal(canFinalize(record),false);
  record.facts['market.competition'].confirmed=true;
+ for(const fields of Object.values(ASSESSMENT_DOMAINS)){const key=fields[0];record.facts[key]={...structuredClone(fixture.facts['finance.unitCost']),field:key};record.questions.push({id:key,field:key,status:'answered',text:'Test question',answer:'Test answer',rationale:'',guidance:'',translations:{}});}
  assert.equal(canFinalize(record),true);
  record.questions[0].status='pending';
  assert.equal(canFinalize(record),false);
+});
+
+test('incomplete nested backend data is rejected before it can crash a page',()=>{
+ for(const mutate of [
+  (r:any)=>{r.facts['finance.unitCost'].validation=null;},
+  (r:any)=>{r.facts['finance.unitCost'].claims=null;},
+  (r:any)=>{r.questions=[{id:'broken',field:'finance.unitCost',text:'Question',status:'pending'}];},
+  (r:any)=>{r.report={explanation:'Incomplete report'};},
+  (r:any)=>{r.currentScore={overallScore:7,domains:{business:{rating:3}}};},
+  (r:any)=>{r.financials={calculations:{},warnings:null};},
+ ]){const record=structuredClone(fixture);mutate(record);assert.throws(()=>assertScreeningRecord(record),/screening contract/);}
+});
+
+test('even fully provided and confirmed pitch facts cannot skip category questions',()=>{
+ const record=structuredClone(fixture);
+ for(const key of BUSINESS_FIELDS)record.facts[key]={...structuredClone(fixture.facts['finance.unitCost']),field:key};
+ assert.equal(canFinalize(record),false);
+ for(const fields of Object.values(ASSESSMENT_DOMAINS)){const key=fields[0];record.questions.push({id:key,field:key,status:'answered',text:'Question',answer:'Beneficiary evidence',rationale:'',guidance:'',translations:{}});}
+ assert.equal(canFinalize(record),true);
 });

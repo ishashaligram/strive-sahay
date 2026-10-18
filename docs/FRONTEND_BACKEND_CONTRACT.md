@@ -138,3 +138,27 @@ The assessor receives only assigned cases. The Admin view must be backend-author
 Return JSON errors with detail as a string or Pydantic validation list. Use 401/403 for auth, 409 for workflow conflicts, 422 for invalid input, and 503 for unavailable services. Never return fake extraction data or HTML with an HTTP-success status.
 
 After mapping, verify: authentication; independently selected document/UI languages; actual text/PDF/audio input; evidence references; confirmation/correction; missing-field questions; current scores; plan; assessor ownership; Admin decision; translated beneficiary status; persistence after refresh. Static frontend checks do not prove model, OCR, voice or translation accuracy.
+
+
+## Clarification and readiness scoring (updated)
+
+The beneficiary screen must not display pitch extraction coverage as a readiness score. Extraction scores have `assessmentType: EVIDENCE_COVERAGE_NOT_AI_RATING`. A final readiness assessment requires answered clarification questions across all eight rubric categories, confirmed valid facts for those answers, confirmed critical facts, and no unresolved questions. A supplied pitch alone cannot satisfy this gate.
+
+The frontend requests `/clarification/{id}/round` once after a newly extracted idea, displays actual service errors, and allows explicit retry. Rounds prioritize one question per unasked rubric category. Unknown answers remain unresolved. `/ai-score`, `/finalize`, `/confirm`, and `/submit-to-assessor` enforce the clarification gate on the server.
+
+Qwen receives the original pitch, confirmed facts, and clarification answers. Supporting fields must belong to the rated category. Each category rating is capped by the proportion of its rubric fields actually cited as confirmed evidence; missing evidence cannot earn a full rating. The weighted total remains server calculated. Live model/translation verification still requires reachable configured services.
+
+Malformed nested response data is rejected with a visible error before rendering. Unexpected rendering errors show reload/home recovery controls. These controls do not delete submissions.
+
+
+## Presentation phone login
+
+The login pages now show Phone number, Sign in, and Register for beneficiary, assessor, and program manager (`admin`). Registration collects the name and verifies a server-generated six-digit OTP displayed directly on screen. It does not send SMS or establish real phone ownership. The OTP expires after five minutes, is single-use, has a five-attempt limit, and can be resent after 30 seconds.
+
+- `POST /auth/request-otp`: `{phone,role,mode: "login"|"register",name,language}` returns `{challenge_id,demo_otp,expires_in,resend_after,presentation:true}`.
+- `POST /auth/verify-otp`: `{challenge_id,otp}` returns `{session_token,user:{id,name,role},presentation:true}`. The app stores the session internally; users never enter an access token.
+- `POST /auth/logout`: invalidates the current presentation session.
+
+Presentation sessions last 12 hours and use a separate `presentation.sqlite3` database for all accounts, cases, profiles, cohorts, and allocation. They cannot read existing screening records. `DEMO_DATABASE_PATH` must differ from `DATABASE_PATH`. `PRESENTATION_PHONE_LOGIN=false` disables new presentation logins. Do not treat this flow as production authentication.
+
+In presentation mode all three roles can register. Assessor allocation uses only assessors registered in the same presentation database. It balances workload within capacity, region, trade, and availability; the program manager can reassign with a reason. Program managers oversee the queue; there is no separate automatic per-manager beneficiary allocation.

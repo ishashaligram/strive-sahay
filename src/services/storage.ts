@@ -1,3 +1,4 @@
+import {validActiveUser} from './navigation';
 import {
   Beneficiary,
   BusinessProfile,
@@ -86,7 +87,8 @@ class StorageService {
 
   // Active Session
   getActiveUser(): { role: 'beneficiary' | 'assessor' | 'admin'; id: string; name: string } | null {
-    return this.get(STORAGE_KEYS.ACTIVE_USER, null);
+    const user=this.get<unknown>(STORAGE_KEYS.ACTIVE_USER, null);
+    return validActiveUser(user)?user:null;
   }
 
   setActiveUser(user: { role: 'beneficiary' | 'assessor' | 'admin'; id: string; name: string } | null): void {
