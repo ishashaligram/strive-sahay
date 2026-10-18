@@ -1,3 +1,63 @@
 @import "tailwindcss";
 
 @media print { nav, footer, button, select, textarea, input, header { display:none !important; } body { background:white !important; } #business-plan { break-before:page; } #business-plan h3 { break-after:avoid; } #business-plan p { orphans:3; widows:3; } }
+
+/* Tata STRIVE palette: blue, lime and charcoal. Keep existing utility names
+   so all programme screens share the same accessible colour system. */
+@theme {
+ --color-teal-50: #eff7ff;
+ --color-teal-100: #dfedff;
+ --color-teal-200: #b8d5ff;
+ --color-teal-300: #85b5ff;
+ --color-teal-400: #62a8ff;
+ --color-teal-500: #00a0f7;
+ --color-teal-600: #0242ff;
+ --color-teal-700: #153ec2;
+ --color-teal-800: #183793;
+ --color-teal-900: #182d68;
+ --color-teal-950: #101e43;
+ --color-slate-900: #262626;
+ --color-slate-950: #171717;
+}
+.strive-home{background:#fff;color:#262626;line-height:1.6}
+.strive-header{max-width:1280px;margin:auto;padding:22px 36px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.strive-logo{width:165px;height:auto;display:block}
+.strive-header nav{display:flex;align-items:center;gap:32px;font-size:15px;font-weight:600}
+.strive-language{display:flex;align-items:center;gap:9px;border:1px solid #d5d5d5;border-radius:99px;padding:10px 19px}
+.strive-hero{background:#262626;color:white;overflow:hidden}
+.strive-hero-inner{max-width:1280px;margin:auto;display:grid;grid-template-columns:1fr 1fr;min-height:570px;padding:62px 36px 0;gap:16px}
+.strive-hero-copy{position:relative;z-index:2;padding-bottom:54px}
+.strive-eyebrow{font-size:12px;font-weight:700;letter-spacing:.17em}
+.strive-hero .strive-eyebrow{color:#e7fe52}
+.strive-hero h1{font-size:clamp(42px,4.7vw,65px);line-height:1.09;letter-spacing:-.045em;font-weight:750;margin:22px 0}
+.strive-hero h1 span{color:#e7fe52}
+.strive-intro{font-size:18px;line-height:1.7;max-width:465px;color:#e2e2e2}
+.strive-cta{display:inline-flex;align-items:center;gap:30px;background:#e7fe52;color:#262626;border-radius:99px;padding:16px 25px;font-size:18px;font-weight:700;margin-top:28px;transition:background .2s,transform .2s}
+.strive-cta:hover{background:#f0ff95;transform:translateY(-2px)}
+.strive-register{font-size:13px;color:#d5d5d5;margin-top:13px}
+.strive-voice-note{display:flex;align-items:center;gap:10px;font-size:14px;color:#ddd;margin-top:28px}
+.strive-hero-visual{position:relative;display:flex;align-items:flex-end;isolation:isolate;margin-top:45px}
+.strive-orbit{position:absolute;z-index:-1;width:530px;height:530px;border-radius:50%;background:#0242ff;left:0;bottom:-100px}
+.strive-hero-visual>img{width:112%;max-width:none;height:auto;position:relative;left:-35px;z-index:1}
+.strive-photo-caption{position:absolute;z-index:2;right:-10px;top:-18px;border-left:3px solid #e7fe52;padding-left:14px;font-size:19px;line-height:1.3}
+.strive-journey{max-width:1280px;margin:auto;padding:66px 36px 70px;scroll-margin-top:20px}
+.strive-section-heading .strive-eyebrow{color:#153ec2}
+.strive-section-heading h2{font-size:clamp(28px,3vw,38px);line-height:1.2;letter-spacing:-.025em;font-weight:700;margin:12px 0}
+.strive-section-heading>p:last-child{color:#606060;font-size:17px}
+.strive-step-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;margin-top:34px}
+.strive-step{border-top:2px solid #262626;padding:23px 0 0}
+.strive-step-top{display:flex;align-items:center;justify-content:space-between;color:#153ec2}
+.strive-step-top span{font-size:14px;font-weight:700;color:#777}
+.strive-step h3{font-size:21px;font-weight:700;margin:17px 0 8px}
+.strive-step p{color:#606060;max-width:300px;font-size:16px}
+.strive-language-band{background:#e7fe52;padding:32px max(36px,calc((100vw - 1208px)/2));display:flex;justify-content:space-between;align-items:center;gap:26px}
+.strive-language-band h2{font-size:27px;font-weight:700;line-height:1.3;margin:10px 0}
+.strive-language-band p{font-size:16px}
+.strive-language-band a{display:inline-flex;gap:20px;align-items:center;padding:14px 22px;border:1px solid #262626;border-radius:99px;white-space:nowrap;font-weight:600}
+.strive-footer{max-width:1280px;margin:auto;padding:30px 36px;display:flex;align-items:center;justify-content:space-between;font-size:13px;color:#606060;gap:20px}
+.strive-footer div{display:flex;flex-direction:column;gap:4px}
+.strive-footer strong{color:#262626;font-size:17px}
+.strive-home a:focus-visible{outline:3px solid #00a0f7;outline-offset:5px}
+@media(max-width:800px){.strive-header{padding:18px 22px}.strive-logo{width:135px}.strive-nav-link{display:none}.strive-header nav{gap:0}.strive-language{padding:8px 12px;font-size:13px}.strive-hero-inner{grid-template-columns:1fr;padding:38px 22px 0;gap:0}.strive-hero-copy{padding-bottom:0}.strive-hero h1{font-size:46px}.strive-hero-visual{max-width:530px;width:100%;margin:50px auto 0}.strive-hero-visual>img{left:0;width:100%}.strive-orbit{width:100%;height:auto;aspect-ratio:1;bottom:-35%}.strive-photo-caption{right:0;top:-18px;font-size:16px}.strive-journey{padding:44px 22px}.strive-step-grid{grid-template-columns:1fr;gap:28px}.strive-step p{max-width:none}.strive-step h3{margin-top:12px}.strive-language-band{padding:28px 22px;align-items:flex-start;flex-direction:column}.strive-footer{padding:26px 22px;align-items:flex-start}}
+.strive-logo{filter:brightness(0)}
+

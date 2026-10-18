@@ -1,0 +1,12 @@
+# Windows pure-Python toolkit avoids requiring Microsoft C++ Build Tools.
+# Install base torch/transformers/sentencepiece from requirements-models.txt first.
+# The official source revision predates the compiled processor extension.
+IndicTransToolkit @ git+https://github.com/VarunGumma/IndicTransToolkit.git@0c607654e8b6cce897a32039df79018a1daff4e2
+indic-nlp-library-itt @ git+https://github.com/VarunGumma/indic_nlp_library.git@50a85ff77053868de7bf7fde151d0f90b029e609
+sacremoses==0.2.0
+sacrebleu==2.6.0
+portalocker==4.4.1
+tabulate==0.10.0
+cloudpickle==3.1.2
+joblib==1.6.0
+truststore==0.10.5

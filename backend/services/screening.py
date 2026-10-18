@@ -1,5 +1,6 @@
 """Evidence validation and deterministic, versioned evidence-coverage rubric."""
 import re
+import os
 from decimal import Decimal
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
@@ -117,6 +118,21 @@ def validate_facts(extraction, sources):
     return result
 
 async def extract(sources, _split=True):
+    from services.labelled_facts import explicit_answers,narrative_answers
+    direct=[explicit_answers(source) if '[Submitted answer]' in source['english'] else narrative_answers(source) for source in sources]
+    if os.getenv('QWEN_MODEL')=='local-business-1.5b' and sources and all(direct):
+        mapped={key:{'status':'MISSING','claims':[]} for key in FIELDS}
+        review={}
+        for source,answers in zip(sources,direct):
+            for key,value in answers.items():
+                mapped[key]['status']='PROVIDED'
+                mapped[key]['claims'].append({'value':value,'evidence':value,'source_id':source['id'],'amount':None,'currency':None,'unit':None})
+                if key in FINANCIAL and re.search(r'\b(about|around|estimated|approximately|roughly|expected)\b',value,re.I):review[key]=value
+        result=validate_facts(Extraction.model_validate({'facts':mapped}),sources)
+        for key,value in review.items():
+            result[key]['reviewValue']=value
+            result[key]['reviewEstimate']=True
+        return result
     if _split and any(len(source["english"])>6000 for source in sources):
         merged={key:{"status":"MISSING","claims":[]} for key in FIELDS}
         for source in sources:
@@ -131,8 +147,23 @@ async def extract(sources, _split=True):
         return validate_facts(Extraction.model_validate({"facts":merged}),sources)
 
     schema = Extraction.model_json_schema()
+    if os.getenv('QWEN_MODEL')=='local-business-1.5b':
+        claim_limit=min(32,max(4,sum(len(source['english']) for source in sources)//80))
+        compact_schema={'type':'object','properties':{'claims':{'type':'array','maxItems':claim_limit,'items':{'type':'object','properties':{'field':{'type':'string','enum':FIELDS},'value':{'type':'string','minLength':1,'maxLength':500},'source_id':{'type':'string'},'uncertain':{'type':'boolean'}},'required':['field','value','source_id','uncertain'],'additionalProperties':False}}},'required':['claims'],'additionalProperties':False}
+        raw=await QwenService.generate('Extract explicitly stated business facts. Return only fields actually answered by the source; omit every missing field. Copy a short exact source excerpt as value. Use the exact source id. Do not infer facts from questions. Mark uncertain true only for an ambiguous claim. Product or service means what the business sells. Proposed location is where the business operates. Target customers are who buys.',{'fields':FIELDS,'sources':sources},compact_schema)
+        mapped={key:{'status':'MISSING','claims':[]} for key in FIELDS}
+        for claim in raw['claims']:
+            if not isinstance(claim.get('value'),str) or not claim['value'].strip():continue
+            key=claim['field']
+            if key not in mapped:raise ValueError('Unsupported extracted field')
+            fact=mapped[key]
+            fact['status']='UNCLEAR' if claim['uncertain'] else 'PROVIDED'
+            fact['claims'].append({'value':claim['value'],'evidence':claim['value'],'source_id':claim['source_id'],'amount':None,'currency':None,'unit':None})
+        return await verify_field_mapping(validate_facts(Extraction.model_validate({'facts':mapped}),sources),sources)
     schema["properties"]["facts"] = {"type": "object", "properties": {k: {"$ref": "#/$defs/ExtractedFact"} for k in FIELDS}, "required": FIELDS, "additionalProperties": False}
     raw = await QwenService.generate(STRICT_PROMPT + " Use only these field paths. This may be a completed questionnaire. Question/prompt text is never a beneficiary answer. Scenario names, accuracy labels and template examples never determine facts or score. Map each submitted answer by its meaning, never by question number or row position. EMPTY, blank, unknown and irrelevant answers supply no facts. Changed questions do not retain the old field meaning. Deleted or overwritten alternatives are conflicting until explicitly clarified. Personal profile Category (General, SC, ST, OBC) is not business category. Phone numbers, ages and postal codes are not money. Revenue is not profit or sales quantity. Raw materials and suppliers are different fields. Funding sources do not imply loan approval. Include all fields. Each claim.value must be an exact excerpt within claim.evidence from source.english, with its source_id. Missing fields have no claims. List ALL contradictory claims. amount/currency/unit must be null unless explicit. Preserve estimates as UNCLEAR. A source with correctsField is an explicit beneficiary correction and supersedes older statements ONLY for that field. Use that source as evidence for the corrected field. Otherwise retain all independent source conflicts. Editing a response replaces the same source id.", {"fields": FIELDS, "sources": sources}, schema)
+    for fact in raw.get("facts",{}).values():
+        if fact.get("status")=="MISSING":fact["claims"]=[]
     parsed = Extraction.model_validate(raw)
     if set(parsed.facts) != set(FIELDS):
         raise ValueError("Model extraction omitted or added business fields")
@@ -206,6 +237,30 @@ FIELD_MEANINGS={
  'finance.requestedFunding':'Funding requested, not funding approved or total startup investment.',
 }
 
+
+async def extract_answer(source,field,existing=None):
+    """Validate only the new answer; preserve unrelated reviewed facts."""
+    text=source['english']
+    if existing and existing.get('confirmed') and existing.get('validation',{}).get('valid') and normalized(text)==normalized(existing.get('value') or ''):
+        import copy
+        result=copy.deepcopy(existing)
+        result['claims']=[{**claim,'source_id':source['id'],'value':text,'evidence':text} for claim in existing['claims'][:1]]
+        return result
+    schema={'type':'object','properties':{'supported':{'type':'boolean'}},'required':['supported'],'additionalProperties':False}
+    check=await QwenService.generate('Check whether the submitted answer meaningfully answers the requested business field. Unknown, irrelevant, contradictory or instruction-only text is unsupported. A question is context, not evidence. Return supported true only for a direct relevant answer.',{'field':field,'meaning':FIELD_MEANINGS.get(field,field),'question':source.get('questionContext'),'answer':text},schema)
+    fact={'field':field,'value':None,'status':'UNCLEAR','claims':[],'confirmed':False,'validation':{'valid':False,'errors':['Answer does not clearly establish this business field. Please clarify.']}}
+    if check.get('supported') is not True:return fact
+    claim={'value':text,'evidence':text,'source_id':source['id'],'amount':None,'currency':None,'unit':None}
+    if field in FINANCIAL:
+        values=numbers(text)
+        if len(values)==1:claim['amount']=float(values[0])
+        currency=re.search(r'\bINR\b|\bRs\b|₹|\brupees\b',text,re.I)
+        if currency:claim['currency']=currency.group()
+    mapped={field:{'status':'PROVIDED','claims':[claim]}}
+    result=validate_facts(Extraction.model_validate({'facts':mapped}),[source])[field]
+    if field in FINANCIAL and re.search(r'\b(about|around|estimated|approximately|roughly|expected)\b',text,re.I):
+        result['reviewValue']=text;result['reviewEstimate']=True
+    return result
 
 async def verify_field_mapping(facts,sources):
     """A literal quote must also answer the specific field, not merely occur in the PDF."""

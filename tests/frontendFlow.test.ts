@@ -48,6 +48,14 @@ test('unverified or missing values do not prefill the actual form',()=>{
  record.facts['finance.unitCost'].value=null;
  assert.deepEqual(draftFromRecord(record),{});
 });
+test('sourced estimates prefill for review and are included when saving',()=>{
+ const record=structuredClone(fixture);
+ record.facts['finance.unitCost']={...record.facts['finance.unitCost'],value:null,status:'UNCLEAR',confirmed:false,reviewValue:'About INR 60 per garment',reviewEstimate:true,validation:{valid:false,errors:['Estimate requires review']}};
+ const values=draftFromRecord(record);
+ assert.equal(values['finance.unitCost'].value,'About INR 60 per garment');
+ assert.equal(values['finance.unitCost'].estimate,true);
+ assert.ok(changedFields(values,draftFromRecord(record,false))['finance.unitCost']);
+});
 test('numeric metadata cannot contradict the quoted form text',()=>{
  assert.ok(validateDraft({'finance.unitCost':{value:'Cost INR 60',amount:600}}));
  assert.equal(validateDraft({'finance.unitCost':{value:'खर्च ६० रुपये',amount:60}}),null);

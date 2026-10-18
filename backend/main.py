@@ -5,6 +5,9 @@ import os
 import secrets
 import sqlite3
 import uuid
+import unicodedata
+import time
+import copy
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
@@ -23,9 +26,28 @@ from services.category import apply_category
 from services.document_layout import damaged_text
 from services.whisper_service import FasterWhisperService
 from services.phone_auth import presentation_request, demo_path, install_phone_auth
+from services.diagnostics import request_id,logger
 
 load_dotenv(Path(__file__).parent / ".env")
 app = FastAPI(title="STRIVE SAHAY evidence-based screening", version="3.0")
+
+@app.middleware('http')
+async def request_timings(request,call_next):
+    rid=secrets.token_hex(6)
+    token=request_id.set(rid)
+    start=time.perf_counter()
+    status=500
+    logger.info('[API %s] START %s',rid,request.method)
+    try:
+        response=await call_next(request)
+        status=response.status_code
+        response.headers['X-Request-ID']=rid
+        return response
+    finally:
+        route=request.scope.get('route')
+        path=getattr(route,'path','unmatched-route')
+        logger.info('[API %s] END %s %s status=%s duration_ms=%.0f',rid,request.method,path,status,(time.perf_counter()-start)*1000)
+        request_id.reset(token)
 app.add_middleware(CORSMiddleware, allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(","), allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
 security = HTTPBearer()
 STATES = ["DRAFT", "EXTRACTED", "PROVISIONALLY_SCORED", "CLARIFICATION", "FINAL_SCORED", "READY_FOR_ASSESSOR", "SUBMITTED"]
@@ -110,6 +132,8 @@ def get_record(sid, user, write=False):
     return record
 
 def persist(record, new=False):
+    if new and not record.get("cohortId") and globals().get("profile_cohort"):
+        record["cohortId"]=profile_cohort(record["owner"])
     previous = record.get("revision", 0)
     record["revision"] = previous + 1
     record["updatedAt"] = now()
@@ -182,6 +206,19 @@ class TranslateRequest(BaseModel):
 
 async def source(text, language, sid):
     if damaged_text(text):raise HTTPException(422,"The text contains unreadable PDF characters. Use OCR or paste a corrected transcript.")
+    letters=[char for char in text if char.isalpha()]
+    # All supported non-English inputs use Indic scripts. Do not let a small
+    # model's language guess send plain English documents to translation.
+    if letters and all('LATIN' in unicodedata.name(char,'') for char in letters):
+        return {"id":sid,"original":text,"english":text,"language":"en","detectedLanguage":"en","translationUncertain":False,"createdAt":now()}
+    if language=='en' and letters:
+        scripts=[('bn',0x0980,0x09ff),('or',0x0b00,0x0b7f),('ta',0x0b80,0x0bff),('te',0x0c00,0x0c7f),('kn',0x0c80,0x0cff),('hi',0x0900,0x097f)]
+        matches=[code for code,start,end in scripts if any(start<=ord(char)<=end for char in letters)]
+        language=matches[0] if len(matches)==1 and matches[0]!='hi' else 'auto'
+    if language!='auto':
+        if language not in LANGUAGES:raise HTTPException(422,'Unsupported language')
+        english=await IndicTransService.translate(text,language,'en')
+        return {'id':sid,'original':text,'english':english,'language':language,'detectedLanguage':language,'translationUncertain':False,'createdAt':now()}
     detection_schema = {"type": "object", "properties": {"language": {"type": "string", "enum": list(LANGUAGES)}, "uncertain": {"type": "boolean"}, "mixed": {"type": "boolean"}}, "required": ["language", "uncertain", "mixed"], "additionalProperties": False}
     detected = await QwenService.generate("Detect the language of this text. In questionnaires identify the language of submitted answers rather than just the template headings. Flag uncertain detection and code mixing. Return JSON only.", {"text": text}, detection_schema)
     detected_language = detected.get("language")
@@ -203,7 +240,7 @@ async def service_error(request, exc):
 
 @app.get("/api/health")
 def health():
-    return {"status": "online", "qwenModel": os.getenv("QWEN_MODEL", "qwen3:8b"), "translationConfigured": bool(os.getenv("INDICTRANS_ENDPOINT")), "accountsConfigured": bool(json.loads(os.getenv("SCREENING_ACCOUNTS", "{}")))}
+    return {"status": "online", "qwenModel": os.getenv("QWEN_MODEL", "qwen3:8b"), "translationConfigured": bool(os.getenv("INDICTRANS_ENDPOINT")), "englishTranslationBypass": True, "accountsConfigured": bool(json.loads(os.getenv("SCREENING_ACCOUNTS", "{}")))}
 
 @app.get("/api/session")
 def session(user=Depends(account)):
@@ -232,7 +269,7 @@ async def process_text(req: TextRequest, user=Depends(account)):
         raise HTTPException(403, "Beneficiary account required")
     if req.interaction_language and req.interaction_language not in LANGUAGES:
         raise HTTPException(422, "Unsupported interaction language")
-    src = await source(req.text, req.language, "pitch")
+    src = await source(req.text, req.interaction_language if req.language=="auto" and req.interaction_language else req.language, "pitch")
     record = {"id": str(uuid.uuid4()), "owner": user["id"], "assessor": user.get("assessor_id"), "title": req.title, "inputType": req.input_type, "language": req.interaction_language or src["language"], "maxQuestions": int(os.getenv("MAX_QUESTIONS", "8")), "sources": [src], "questions": [], "facts": {}, "state": "DRAFT", "history": [{"state": "DRAFT", "at": now()}], "createdAt": now(), "revision": 0}
     record["mediaIds"] = validate_media(req.media_ids, user)
     src["documentWarnings"]=document_warnings(req.media_ids,user)
@@ -253,7 +290,8 @@ async def run_extraction(record):
 @app.post("/api/submissions/{sid}/extract")
 async def retry_extraction(sid: str, user=Depends(account)):
     record = get_record(sid, user, True)
-    if record["state"] not in ("DRAFT", "EXTRACTED"):
+    recoverable=record['state']=='PROVISIONALLY_SCORED' and not any(f.get('validation',{}).get('valid') or f.get('confirmed') for f in record['facts'].values()) and not any(q.get('status')=='answered' for q in record['questions'])
+    if record["state"] not in ("DRAFT", "EXTRACTED") and not recoverable:
         raise HTTPException(409, "Extraction already completed")
     return await run_extraction(record)
 
@@ -303,11 +341,17 @@ async def answer(sid: str, req: AnswerRequest, user=Depends(account)):
         if q.get("correction") or record["facts"].get(q["field"],{}).get("status")!="PROVIDED":
             src["correctsField"] = q["field"]
         sources.append(src)
-    facts = await extract(sources)
+    if os.getenv('QWEN_MODEL')=='local-business-1.5b':
+        from services.screening import extract_answer
+        facts=copy.deepcopy(record['facts'])
+        if not req.dont_know:facts[q['field']]=await extract_answer(src,q['field'],record['facts'].get(q['field']))
+    else:
+        facts = await extract(sources)
     if req.dont_know:
         fact = facts[q["field"]]
         fact.update({"status": "UNCLEAR", "value": None, "validation": {"valid": False, "errors": ["Beneficiary has withdrawn certainty about this field"]}})
     q.update({"status": "unknown" if req.dont_know else "answered", "answer": "" if req.dont_know else req.answer, "answerLanguage": req.language, "answeredAt": now()})
+    if os.getenv('QWEN_MODEL')=='local-business-1.5b' and not facts[q['field']]['validation']['valid'] and not facts[q['field']].get('reviewValue'):q['status']='unknown'
     for key, fact in facts.items():
         old=record["facts"].get(key,{})
         fact["confirmed"]=bool(old.get("confirmed") and old.get("value")==fact.get("value") and fact["status"]=="PROVIDED")
@@ -375,6 +419,8 @@ async def change_language(sid: str, req: LanguageRequest, user=Depends(account))
         q.setdefault("localizedRationale", {})[req.language] = await IndicTransService.translate(q["rationale"], "en", req.language)
     if record.get("report"):
         record.setdefault("reportTranslations", {})[req.language] = await localized_report(record["report"], req.language)
+    from services.feedback_translation import localize_feedback
+    await localize_feedback(record,req.language)
     record["language"] = req.language
     return persist(record)
 
@@ -417,12 +463,12 @@ async def upload_bytes(file):
     return data
 
 @app.post("/api/pipeline/process-document")
-async def document(file: UploadFile = File(...), user=Depends(account)):
+async def document(file: UploadFile = File(...), language:str=Form("auto"), user=Depends(account)):
     data = await upload_bytes(file)
     name = (file.filename or "").lower()
     pages=[]
     if name.endswith(".pdf"):
-        result = await asyncio.to_thread(PDFProcessingService.extract_text_from_pdf, data, name)
+        result = await asyncio.to_thread(PDFProcessingService.extract_text_from_pdf, data, name,language)
         text = result["full_text"]
         pages=result.get("pages",[])
     elif name.endswith(".docx"):
@@ -502,3 +548,8 @@ from services.program import install_program
 install_program(app, globals())
 
 install_phone_auth(app, globals())
+from services.beneficiary_experience import install_beneficiary_experience
+install_beneficiary_experience(app,globals())
+
+from services.investment_review import install_investment_review
+install_investment_review(app,globals())

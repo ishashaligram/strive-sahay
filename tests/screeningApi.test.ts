@@ -7,7 +7,7 @@ const originalWindow=globalThis.window;
 const originalStorage=globalThis.sessionStorage;
 function setup(fetcher:typeof fetch) {
   globalThis.fetch=fetcher;
-  globalThis.window={setTimeout:globalThis.setTimeout,clearTimeout:globalThis.clearTimeout} as unknown as Window & typeof globalThis;
+  globalThis.window={setTimeout:globalThis.setTimeout,clearTimeout:globalThis.clearTimeout,setInterval:globalThis.setInterval,clearInterval:globalThis.clearInterval} as unknown as Window & typeof globalThis;
   globalThis.sessionStorage={getItem:()=> 'private-account-token'} as unknown as Storage;
 }
 test.afterEach(()=>{globalThis.fetch=originalFetch;globalThis.window=originalWindow;globalThis.sessionStorage=originalStorage;});

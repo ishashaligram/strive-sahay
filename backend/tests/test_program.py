@@ -220,3 +220,22 @@ def test_confirmed_fact_correction_history_is_immutable(client):
     assert changed["factHistory"][-1]["before"]["overview.productService"]["value"]==original
     assert not changed["facts"]["overview.productService"]["confirmed"]
     assert changed["currentScore"]["stale"] is True
+
+
+def test_repeated_assignment_preserves_one_assessor_and_history(client,monkeypatch):
+    grant_admin(monkeypatch)
+    record=form(client)
+    sid=record["id"]
+    first=client.post(f"/api/submissions/{sid}/escalate",headers=AUTH,json={"reason":"Need help with business planning."}).json()
+    assert first["assessor"]
+    for _ in range(3):
+        repeated=client.post(f"/api/admin/submissions/{sid}/assign",headers=ADMIN,json={"reason":"Retry automatic assignment"})
+        assert repeated.status_code==200,repeated.text
+        assert repeated.json()["assessor"]==first["assessor"]
+        assert repeated.json()["assignmentHistory"]==first["assignmentHistory"]
+        assert repeated.json()["revision"]==first["revision"]
+    unavailable=client.post(f"/api/admin/submissions/{sid}/assign",headers=ADMIN,json={"assessor_id":"missing-assessor","reason":"Explicit transfer attempt"})
+    assert unavailable.status_code==409
+    current=client.get(f"/api/submissions/{sid}",headers=AUTH).json()
+    assert current["assessor"]==first["assessor"]
+    assert current["assignmentHistory"]==first["assignmentHistory"]

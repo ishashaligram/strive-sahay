@@ -38,7 +38,7 @@ class StructuredRequest(BaseModel):
     title:str=Field(min_length=1,max_length=200)
     language:str="en"
     cohortId:str|None=None
-    region:str=""
+    region:str=Field(default='',max_length=200)
     trade:str=""
     fields:dict[str,StructuredFact]
 
@@ -116,6 +116,10 @@ def install_program(app, runtime):
             media=next((m for m in all_entities("media") if m["id"]==mid),None)
             if not media or media["owner"]!=user["id"]:raise HTTPException(403,"Upload access denied")
         return ids
+    def profile_cohort(owner):
+        profile=next((p for p in all_entities("profile") if p["id"]==owner),{})
+        return profile.get("cohortId")
+    runtime["profile_cohort"]=profile_cohort
     runtime["store_media"]=store_media
     runtime["validate_media"]=validate_media
     def document_warnings(ids,user):
@@ -141,12 +145,17 @@ def install_program(app, runtime):
     def audit(action,user,details):
         eid=secrets.token_hex(12)
         put("audit",eid,{"id":eid,"action":action,"actor":user["id"],"at":now(),"details":details})
+    runtime["program_entities"]=all_entities
+    runtime["put_program_entity"]=put
+    runtime["program_audit"]=audit
     def records():
         with connection() as db:
             return [json.loads(r[0]) for r in db.execute("SELECT body FROM submissions ORDER BY rowid DESC")]
     def missing(record):
         return [key for key in CRITICAL if not record["facts"].get(key,{}).get("confirmed") or not record["facts"].get(key,{}).get("validation",{}).get("valid")]
     def invalidate(record):
+        record.pop('guidance',None)
+        record.pop('guidanceTranslations',None)
         for key in ["finalScore","report","reportTranslations","confirmedAt","businessPlan","businessPlanTranslations","assessorReview","recommendation","adminDecision"]:
             record.pop(key,None)
         if record.get("currentScore"):
@@ -164,6 +173,16 @@ def install_program(app, runtime):
     @app.get("/api/schema")
     def schema(user=Depends(account)):
         return {"modules":MODULES,"critical":CRITICAL,"recommendations":RECOMMENDATIONS,"decisions":DECISIONS}
+
+    @app.get('/api/regions')
+    def regions(user=Depends(account)):
+        options={'Pune','Mumbai','Thane','Nashik','Ahmednagar','Solapur','Satara','Kolhapur','Sangli'}
+        for capacity in all_entities('capacity'):
+            options.update(value.strip() for value in capacity.get('regions',[]) if isinstance(value,str) and value.strip())
+        for region in all_entities('region'):
+            value=region.get('name') or region.get('id')
+            if isinstance(value,str) and value.strip():options.add(value.strip())
+        return sorted(options)
 
     @app.get("/api/profile")
     def profile(user=Depends(account)):
@@ -214,6 +233,8 @@ def install_program(app, runtime):
         record=get_record(sid,user,True)
         runtime["editable"](record)
         if set(req.fields)-set(FIELDS):raise HTTPException(422,"Unknown form field")
+        if 'region' in req.model_fields_set:record['region']=req.region.strip()
+        if not req.fields:return persist(record)
         record.setdefault("factHistory",[]).append({"at":now(),"actor":user["id"],"before":copy.deepcopy(record["facts"])})
         for key,value in req.fields.items():
             payload=value.model_dump()
@@ -237,6 +258,10 @@ def install_program(app, runtime):
             if fact["status"]!="PROVIDED" or not fact["validation"]["valid"]:raise HTTPException(422,"Only validated provided fields can be confirmed")
             fact["confirmed"]=True
             fact["confirmedAt"]=now()
+        for question in record['questions']:
+            field=question['field']
+            if question['status']=='unknown' and field in req.fields and record['facts'][field].get('method')=='BENEFICIARY_FORM':
+                question.update(status='answered',answer=record['facts'][field]['value'],resolvedByConfirmedForm=True,evidenceSourceId=record['facts'][field]['claims'][0]['source_id'])
         for key in req.rejected:
             record["facts"][key].update({"confirmed":False,"status":"UNCLEAR","value":None})
         record.setdefault("factHistory",[]).append({"at":now(),"actor":user["id"],"before":before,"confirmed":req.fields,"rejected":req.rejected})
@@ -256,7 +281,7 @@ def install_program(app, runtime):
         for key,fact in record["facts"].items():
             if not fact.get("value"):continue
             source=next((s for s in record["sources"] if any(c["source_id"]==s["id"] for c in fact.get("claims",[]))),None)
-            source_lang=source.get("language","en") if fact.get("method")=="BENEFICIARY_FORM" and source else "en"
+            source_lang=fact.get("processingLanguage") or (source.get("language","en") if fact.get("method")=="BENEFICIARY_FORM" and source else "en")
             fact.setdefault("displayValues",{})[language]=await runtime["IndicTransService"].translate(fact["value"],source_lang,language) if key not in ("overview.businessName","overview.proposedLocation") else fact["value"]
         return persist(record)
 
@@ -267,6 +292,8 @@ def install_program(app, runtime):
     @app.post("/api/submissions/{sid}/ai-score")
     async def ai_score(sid:str,user=Depends(account)):
         record=get_record(sid,user,True)
+        from services.beneficiary_experience import normalize_form_facts
+        await normalize_form_facts(record)
         runtime["editable"](record)
         runtime["require_resolved_answers"](record)
         if missing(record):raise HTTPException(409,"Complete and confirm the required business facts before assessment")
@@ -324,6 +351,12 @@ def install_program(app, runtime):
         with connection() as db:
             db.execute("BEGIN IMMEDIATE")
             rows=[json.loads(r[0]) for r in db.execute("SELECT body FROM submissions")]
+            current=next((r for r in rows if r["id"]==record["id"]),None)
+            if not current:raise HTTPException(404,"Submission not found")
+            # Read the latest assignment inside the write lock, not the caller's stale copy.
+            if current.get("assessor") and current.get("assignmentStatus")=="ASSIGNED" and (requested is None or requested==current["assessor"]):
+                return current
+            record=current
             settings=all_entities("capacity",db)
             accounts=[a for a in all_entities("account",db) if a["role"]=="assessor" and a.get("active",True)]
             environment=json.loads(runtime["os"].getenv("SCREENING_ACCOUNTS","{}"))
@@ -339,7 +372,11 @@ def install_program(app, runtime):
                 if cfg.get("regions") and record.get("region") not in cfg["regions"]:continue
                 if cfg.get("trades") and record.get("trade") not in cfg["trades"]:continue
                 candidates.append((active/effective,active,assessor["id"]))
+            if requested and not candidates:
+                raise HTTPException(409,"Requested assessor is unavailable, ineligible, or at capacity; existing assignment retained")
             assignment=min(candidates)[2] if candidates else None
+            if not assignment and current.get("assignmentStatus")=="PENDING_CAPACITY":
+                return current
             current=next((r for r in rows if r["id"]==record["id"]),None)
             if not current:raise HTTPException(404,"Submission not found")
             current["assessor"]=assignment
@@ -478,6 +515,8 @@ def install_program(app, runtime):
     async def question_round(sid:str,user=Depends(account)):
         from services.screening import Question
         record=get_record(sid,user,True)
+        from services.beneficiary_experience import normalize_form_facts
+        await normalize_form_facts(record)
         runtime["editable"](record)
         if runtime["unresolved_answers"](record):return record
         attempted={q["field"] for q in record["questions"]}
@@ -591,3 +630,4 @@ def install_program(app, runtime):
     def insights(sid:str,user=Depends(account)):
         record=get_record(sid,user)
         return {"status":"LIVE_DATA_UNAVAILABLE","message":"Live local market data unavailable","knownCompetitors":record["facts"].get("market.competition"),"checklist":["Identify comparable businesses in your area and record their public sources.","Interview potential customers without assuming demand.","Compare your documented offer with observed alternatives.","Treat underserved needs as hypotheses to validate."]}
+

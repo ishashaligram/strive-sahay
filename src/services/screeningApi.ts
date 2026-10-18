@@ -1,12 +1,12 @@
 import {getSessionToken} from './sessionAuth';
 export interface Source { metadata?:{period?:string;costBasis?:'fixed'|'total'|'variable'}; id: string; original: string; english: string; language: string; detectedLanguage: string; translationUncertain: boolean }
-export interface Fact { displayValues?:Record<string,string>; confirmed?: boolean; isEstimate?: boolean; field: string; value: string | null; status: string; claims: {value: string; evidence: string; source_id: string;period?:string;costBasis?:'fixed'|'total'|'variable'; amount: number | null; currency: string | null; unit: string | null}[]; validation: {valid: boolean; errors: string[]} }
+export interface Fact { reviewValue?:string;reviewEstimate?:boolean; displayValues?:Record<string,string>; confirmed?: boolean; isEstimate?: boolean; field: string; value: string | null; status: string; claims: {value: string; evidence: string; source_id: string;period?:string;costBasis?:'fixed'|'total'|'variable'; amount: number | null; currency: string | null; unit: string | null}[]; validation: {valid: boolean; errors: string[]} }
 export interface Question { id: string; field: string; text: string; rationale: string; guidance: string; localizedGuidance?: Record<string,string>; localizedRationale?: Record<string,string>; status: string; answer?: string; translations: Record<string,string> }
 export interface Score { assessmentType?: string; stale?: boolean; status: string; overallScore: number; completeness: number; confidence: string; feasibility: string; scoreMeaning: string; domains: Record<string,{weight: number; rating: number; supportedFields: string[]; missingFields: string[]}>; unitContribution: {amount: number; currency: string; unit: string; label: string} | null }
 export interface Report { strengths: string[]; weaknesses: string[]; recommendations: string[]; explanation: string; remainingUnknowns: string[] }
 export interface Plan {sections:Record<string,string>;method:string;language:string}
 export interface Financials {calculations:Record<string,{amount:number;formula:string;unit:string}>;warnings:string[];assumptions:string[];scenarios:{scenario:string;quantity:number;revenue:number;profit:number}[]}
-export interface ScreeningRecord { category?:{name:string|null;status:'DETECTED'|'NEEDS_CLARIFICATION';evidence:string|null;sourceField:string;method:string}; mediaIds?:string[];updatedAt?:string;createdAt?:string; cohortId?:string;region?:string;trade?:string;criticalMissing?:string[];
+export interface ScreeningRecord { synthetic?:boolean;syntheticBeneficiary?:string; category?:{name:string|null;status:'DETECTED'|'NEEDS_CLARIFICATION';evidence:string|null;sourceField:string;method:string}; mediaIds?:string[];updatedAt?:string;createdAt?:string; cohortId?:string;region?:string;trade?:string;criticalMissing?:string[];
  financialTranslations?:Record<string,Financials>;financials?:Financials;businessPlan?:Plan;businessPlanTranslations?:Record<string,Plan>;assessmentVersions?:Score[];
  recommendation?:{feedbackLanguage?:string;translations?:Record<string,string>;recommendation:string;reason:string;feedbackTranslated:string};
  adminDecision?:{explanationLanguage?:string;translations?:Record<string,string>;decision:string;reason:string;explanationTranslated:string;scope:string};
@@ -22,12 +22,23 @@ export function apiUrl(path:string){
 export class ApiError extends Error{
  constructor(message:string,public status:number,public code:string){super(message);this.name='ApiError';}
 }
+let diagnosticSequence=0;
 export async function api<T>(path: string, body?: unknown): Promise<T> {
+  const diagnosticId=++diagnosticSequence;
+  const label=path.split('?')[0].replace(/\b[0-9a-f-]{16,}\b/gi,':id');
+  const started=performance.now();
+  const method=body===undefined?'GET':'POST';
+  console.info(`[STRIVE API #${diagnosticId}] START`,{method,route:label});
+  const waiting=window.setInterval(()=>console.info(`[STRIVE API #${diagnosticId}] WAITING`,{route:label,elapsedSeconds:Math.round((performance.now()-started)/1000)}),15000);
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 600000);
   try {
     const token = await getSessionToken();
     const response = await fetch(apiUrl(path), {method: body === undefined ? 'GET' : 'POST', headers: {Authorization: 'Bearer ' + token, ...(body instanceof FormData ? {} : {'Content-Type': 'application/json'})}, body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body), signal: controller.signal});
+    const durationMs=Math.round(performance.now()-started);
+    const summary={route:label,status:response.status,durationMs,requestId:response.headers.get('X-Request-ID')};
+    if(durationMs>10000)console.warn(`[STRIVE API #${diagnosticId}] SLOW RESPONSE`,summary);
+    else console.info(`[STRIVE API #${diagnosticId}] RESPONSE`,summary);
     const data = await response.json().catch(() => {throw new Error('Backend returned an unreadable response');});
     if (!response.ok) {
       const details=typeof data.detail==='string'?data.detail:Array.isArray(data.detail)?data.detail.map((item:{msg?:string})=>item.msg||'Invalid input').join('; '):'Request failed';
@@ -35,10 +46,11 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
     }
     return data as T;
   } catch (error) {
+    console.error(`[STRIVE API #${diagnosticId}] FAILED`,{route:label,elapsedMs:Math.round(performance.now()-started),type:error instanceof ApiError?error.code:error instanceof Error?error.name:'UnknownError'});
     if (error instanceof TypeError) throw new Error('Backend unavailable. Start the screening API and retry.');
     if (error instanceof DOMException && error.name === 'AbortError') throw new Error('Processing timed out. Refresh saved progress before retrying.');
     throw error;
-  } finally { window.clearTimeout(timer); }
+  } finally { window.clearTimeout(timer);window.clearInterval(waiting); }
 }
 
 export async function downloadOriginal(id:string){

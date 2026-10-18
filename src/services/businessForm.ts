@@ -9,11 +9,11 @@ export const BUSINESS_MODULES={
 export const BUSINESS_FIELDS=Object.entries(BUSINESS_MODULES).flatMap(([module,fields])=>fields.map(field=>module+'.'+field));
 export const CRITICAL_FIELDS=['overview.productService','overview.proposedLocation','market.targetCustomers','finance.initialInvestment','finance.unitCost','finance.sellingPrice','finance.monthlyExpenses','finance.expectedSales'];
 export interface FactDraft {value:string;amount?:number;currency?:string;unit?:string;period?:string;estimate?:boolean;costBasis?:'fixed'|'total'|'variable'}
-export function draftFromRecord(record?:ScreeningRecord):Record<string,FactDraft>{
+export function draftFromRecord(record?:ScreeningRecord,includeReview=true):Record<string,FactDraft>{
  if(!record)return {};
- return Object.fromEntries(Object.entries(record.facts).filter(([,fact])=>fact.status==='PROVIDED'&&fact.validation.valid&&fact.value!==null).map(([key,fact])=>{
+ return Object.fromEntries(Object.entries(record.facts).filter(([,fact])=>(fact.status==='PROVIDED'&&fact.validation.valid&&fact.value!==null)||(includeReview&&!!fact.reviewValue)).map(([key,fact])=>{
   const claim=fact.claims[0];
-  const draft:FactDraft={value:fact.value!,estimate:fact.isEstimate||false};
+  const draft:FactDraft={value:fact.value||fact.reviewValue!,estimate:fact.isEstimate||fact.reviewEstimate||false};
   if(claim){
    const source=record.sources.find(source=>source.id===claim.source_id);
    const metadata=source?.metadata;
