@@ -17,3 +17,11 @@ Program manager: **+12025550119**, via `/admin/login`. This account can see all 
 Existing accounts can also view the examples through the corresponding staff queues when their permissions/assignment allow it. A beneficiary sees only their own submissions, so sign out and use one of the fictional beneficiary accounts to inspect its case.
 
 The seed script is `scripts/seed_synthetic_demo.py`. Running it again does not overwrite existing accounts or case edits. Model weights, database files, OTPs and sessions are not committed to Git.
+
+## Assessor analysis examples
+
+Run `python scripts/seed_assessor_demo.py` with the project runtime to append five fictional cases to each existing presentation assessor account. The script writes only to the presentation database, uses stable case IDs and does not overwrite existing cases. Rerunning does not duplicate cases.
+
+At `/assessor/dashboard`, click Refresh progress to load the examples. My assigned case analysis shows queue counts, a synthetic-score average separate from actual final assessments, and training/mentoring completion. Cases cover SUBMITTED, ADMIN_REVIEW, PROGRAM_DECIDED, CLARIFICATION_REQUIRED and AWAITING_BENEFICIARY. All example pitches, scores and progress are synthetic and cannot establish funding eligibility.
+
+New assessor accounts created after seeding need the script rerun. The separate Synthetic Demo Assessor account retains its original fixture cases; the appended examples target the other existing assessor accounts.
