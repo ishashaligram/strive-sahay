@@ -10,6 +10,7 @@ def translate(text,source,target):
     if source!='eng_Latn' and target!='eng_Latn':return translate(translate(text,source,'eng_Latn'),'eng_Latn',target)
     try:
         import torch
+        torch.set_num_threads(max(1,min(4,os.cpu_count() or 1)))
         from transformers import AutoTokenizer,AutoModelForSeq2SeqLM
         from IndicTransToolkit import IndicProcessor
     except ImportError as exc:raise RuntimeError('IndicTrans2 runtime is not installed. Install backend/requirements-models.txt in a Python 3.11 model environment and approve the official model access in Hugging Face.') from exc
