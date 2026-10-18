@@ -209,8 +209,12 @@ async def source(text, language, sid):
     letters=[char for char in text if char.isalpha()]
     # All supported non-English inputs use Indic scripts. Do not let a small
     # model's language guess send plain English documents to translation.
-    if language in ('auto','en') and letters and all('LATIN' in unicodedata.name(char,'') for char in letters):
+    if letters and all('LATIN' in unicodedata.name(char,'') for char in letters):
         return {"id":sid,"original":text,"english":text,"language":"en","detectedLanguage":"en","translationUncertain":False,"createdAt":now()}
+    if language=='en' and letters:
+        scripts=[('bn',0x0980,0x09ff),('or',0x0b00,0x0b7f),('ta',0x0b80,0x0bff),('te',0x0c00,0x0c7f),('kn',0x0c80,0x0cff),('hi',0x0900,0x097f)]
+        matches=[code for code,start,end in scripts if any(start<=ord(char)<=end for char in letters)]
+        language=matches[0] if len(matches)==1 and matches[0]!='hi' else 'auto'
     if language!='auto':
         if language not in LANGUAGES:raise HTTPException(422,'Unsupported language')
         english=await IndicTransService.translate(text,language,'en')
@@ -415,6 +419,8 @@ async def change_language(sid: str, req: LanguageRequest, user=Depends(account))
         q.setdefault("localizedRationale", {})[req.language] = await IndicTransService.translate(q["rationale"], "en", req.language)
     if record.get("report"):
         record.setdefault("reportTranslations", {})[req.language] = await localized_report(record["report"], req.language)
+    from services.feedback_translation import localize_feedback
+    await localize_feedback(record,req.language)
     record["language"] = req.language
     return persist(record)
 
