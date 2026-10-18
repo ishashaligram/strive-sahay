@@ -11,7 +11,7 @@ const config = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || undefined,
 };
 
-export const firebaseConfigured = Boolean(config.apiKey && config.projectId && config.appId);
+export const firebaseConfigured = Boolean(import.meta.env.VITE_FIREBASE_API_KEY && import.meta.env.VITE_FIREBASE_PROJECT_ID && import.meta.env.VITE_FIREBASE_APP_ID);
 
 // Keep browser configuration in .env.local; secrets and Admin credentials stay on the backend.
 const app = getApps().length ? getApp() : initializeApp(config);

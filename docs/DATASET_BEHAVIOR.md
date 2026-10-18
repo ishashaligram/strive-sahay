@@ -44,3 +44,7 @@ Input/output routing supports English, Hindi, Marathi, Telugu, Tamil, Kannada, B
 - `ASR_ENDPOINT` accepts multipart `file` plus ISO `language` (or `auto`) and returns `original_transcript`, `detected_language`, and optionally confidence. It is required by this adapter for Odia. Without it, other supported speech inputs use the existing real faster-whisper adapter.
 
 Live OCR, speech, extraction, translation and report quality remain unverified until these services are connected. Offline audits and model-double regression tests are not live inference validation.
+
+## Concurrent authentication integration
+
+The teammate's Firebase backend/token verification and email/password UI are preserved. `VITE_AUTH_MODE=firebase` selects that integration. The default `presentation` mode keeps the requested phone registration and displayed OTP in a separate database. Firebase SDK initialization is lazy so an unconfigured Firebase project cannot blank the presentation login. Firebase staff roles remain server assigned; presentation roles remain isolated demo identities. Real Firebase sign-in has not been verified without credentials.

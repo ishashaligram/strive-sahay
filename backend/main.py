@@ -45,6 +45,10 @@ def connection():
         conn.close()
 
 def account(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if credentials.credentials.startswith('presentation_'):
+        user=phone_auth(credentials.credentials)
+        if user:return user
+        raise HTTPException(401,'Session expired. Please sign in with your phone number again.')
     # Keep existing operator-provisioned tokens valid during migration.
     accounts = json.loads(os.getenv("SCREENING_ACCOUNTS", "{}"))
     for token, user in accounts.items():
@@ -76,7 +80,7 @@ def account(credentials: HTTPAuthorizationCredentials = Depends(security)):
 class BeneficiaryRegistration(BaseModel):
     model_config = ConfigDict(extra="forbid")
     display_name: str = Field(min_length=2, max_length=120)
-    preferred_language: Literal["en", "hi", "mr", "te", "ta", "kn", "bn"] = "en"
+    preferred_language: Literal["en", "hi", "mr", "te", "ta", "kn", "bn", "or"] = "en"
 
 
 @app.post("/api/auth/register")
