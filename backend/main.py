@@ -209,7 +209,7 @@ async def service_error(request, exc):
 
 @app.get("/api/health")
 def health():
-    return {"status": "online", "qwenModel": os.getenv("QWEN_MODEL", "qwen3:8b"), "translationConfigured": bool(os.getenv("INDICTRANS_ENDPOINT")), "accountsConfigured": bool(json.loads(os.getenv("SCREENING_ACCOUNTS", "{}")))}
+    return {"status": "online", "qwenModel": os.getenv("QWEN_MODEL", "qwen3:8b"), "translationConfigured": bool(os.getenv("INDICTRANS_ENDPOINT")), "englishTranslationBypass": True, "accountsConfigured": bool(json.loads(os.getenv("SCREENING_ACCOUNTS", "{}")))}
 
 @app.get("/api/session")
 def session(user=Depends(account)):
