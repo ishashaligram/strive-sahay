@@ -348,6 +348,12 @@ def install_program(app, runtime):
         with connection() as db:
             db.execute("BEGIN IMMEDIATE")
             rows=[json.loads(r[0]) for r in db.execute("SELECT body FROM submissions")]
+            current=next((r for r in rows if r["id"]==record["id"]),None)
+            if not current:raise HTTPException(404,"Submission not found")
+            # Read the latest assignment inside the write lock, not the caller's stale copy.
+            if current.get("assessor") and current.get("assignmentStatus")=="ASSIGNED" and (requested is None or requested==current["assessor"]):
+                return current
+            record=current
             settings=all_entities("capacity",db)
             accounts=[a for a in all_entities("account",db) if a["role"]=="assessor" and a.get("active",True)]
             environment=json.loads(runtime["os"].getenv("SCREENING_ACCOUNTS","{}"))
@@ -363,7 +369,11 @@ def install_program(app, runtime):
                 if cfg.get("regions") and record.get("region") not in cfg["regions"]:continue
                 if cfg.get("trades") and record.get("trade") not in cfg["trades"]:continue
                 candidates.append((active/effective,active,assessor["id"]))
+            if requested and not candidates:
+                raise HTTPException(409,"Requested assessor is unavailable, ineligible, or at capacity; existing assignment retained")
             assignment=min(candidates)[2] if candidates else None
+            if not assignment and current.get("assignmentStatus")=="PENDING_CAPACITY":
+                return current
             current=next((r for r in rows if r["id"]==record["id"]),None)
             if not current:raise HTTPException(404,"Submission not found")
             current["assessor"]=assignment
@@ -617,3 +627,4 @@ def install_program(app, runtime):
     def insights(sid:str,user=Depends(account)):
         record=get_record(sid,user)
         return {"status":"LIVE_DATA_UNAVAILABLE","message":"Live local market data unavailable","knownCompetitors":record["facts"].get("market.competition"),"checklist":["Identify comparable businesses in your area and record their public sources.","Interview potential customers without assuming demand.","Compare your documented offer with observed alternatives.","Treat underserved needs as hypotheses to validate."]}
+
