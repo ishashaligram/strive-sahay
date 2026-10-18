@@ -8,7 +8,9 @@ import {MAJOR_FIELDS,SUPPORT_LINKS,VOICE_LANG} from '../src/services/simpleJourn
 import {CRITICAL_FIELDS} from '../src/services/businessForm';
 test('minimal landing offers one beneficiary entry and no staff login cards',()=>{
  const html=renderToStaticMarkup(<MemoryRouter><MinimalLandingPage/></MemoryRouter>);
- assert.ok(html.includes('/beneficiary/language'));
+ assert.ok(html.includes('/beneficiary/auth'));
+ assert.ok(html.includes('TATA')&&html.includes('STRIVE'));
+ assert.ok(html.includes('Beneficiary login'));
  assert.ok(!html.includes('/admin/login')&&!html.includes('/assessor/login'));
 });
 test('major questionnaire includes required facts and all regional voice codes',()=>{

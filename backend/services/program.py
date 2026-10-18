@@ -116,6 +116,10 @@ def install_program(app, runtime):
             media=next((m for m in all_entities("media") if m["id"]==mid),None)
             if not media or media["owner"]!=user["id"]:raise HTTPException(403,"Upload access denied")
         return ids
+    def profile_cohort(owner):
+        profile=next((p for p in all_entities("profile") if p["id"]==owner),{})
+        return profile.get("cohortId")
+    runtime["profile_cohort"]=profile_cohort
     runtime["store_media"]=store_media
     runtime["validate_media"]=validate_media
     def document_warnings(ids,user):

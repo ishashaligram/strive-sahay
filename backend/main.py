@@ -132,6 +132,8 @@ def get_record(sid, user, write=False):
     return record
 
 def persist(record, new=False):
+    if new and not record.get("cohortId") and globals().get("profile_cohort"):
+        record["cohortId"]=profile_cohort(record["owner"])
     previous = record.get("revision", 0)
     record["revision"] = previous + 1
     record["updatedAt"] = now()
