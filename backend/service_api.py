@@ -21,8 +21,10 @@ async def health():
     qwen=False
     try:
         async with httpx.AsyncClient(timeout=2) as client:
-            response=await client.get(os.getenv('QWEN_ENDPOINT','http://127.0.0.1:11434').rstrip('/')+'/api/tags')
-            qwen=response.is_success and any(m.get('name')==os.getenv('QWEN_MODEL','qwen3:8b') for m in response.json().get('models',[]))
+            ollama=os.getenv('QWEN_PROVIDER','ollama')=='ollama'
+            response=await client.get(os.getenv('QWEN_ENDPOINT','http://127.0.0.1:11434').rstrip('/')+('/api/tags' if ollama else '/models'))
+            entries=response.json().get('models' if ollama else 'data',[]) if response.is_success else []
+            qwen=any(m.get('name' if ollama else 'id')==os.getenv('QWEN_MODEL','qwen3:8b') for m in entries)
     except httpx.HTTPError:pass
     return {'server':'running','ocr':{'ready':ocr_ready(),'provider':'local-tesseract'},'indictrans2':{'ready':{'to_en','from_en'}.issubset(CACHE),'loadedDirections':list(CACHE),'modelAccessConfigured':bool(os.getenv('HF_TOKEN') or os.getenv('INDICTRANS_LOCAL_TO_EN'))},'qwen':{'ready':qwen,'model':os.getenv('QWEN_MODEL','qwen3:8b')}}
 @app.post('/ocr')

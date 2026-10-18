@@ -21,6 +21,10 @@ Existing listeners are retained. Logs are written under ignored `output/backend`
 
 ## Model setup still required
 
+### Lightweight presentation model
+
+This machine now has the official Qwen2.5-1.5B-Instruct Q4_K_M pretrained model running in llama.cpp on port 8080. It replaces the unavailable 8B runtime for local presentation use. Configuration in the private environment is `QWEN_PROVIDER=openai`, `QWEN_ENDPOINT=http://127.0.0.1:8080/v1`, `QWEN_MODEL=local-business-1.5b`. Restart with `scripts/start_local_llm.ps1`. Weights are ignored, not committed. Source: https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF and https://github.com/ggml-org/llama.cpp/releases/tag/b11717. Smaller model accuracy is limited; source evidence validation remains enabled. This does not install IndicTrans2 or speech models.
+
 For Qwen, install Ollama, run `ollama pull qwen3:8b`, and start its server on port 11434. Keep enough free memory for inference. Alternatively configure `QWEN_PROVIDER`, `QWEN_ENDPOINT`, `QWEN_MODEL` and optional `QWEN_API_KEY` for an accessible compatible server. No paid API key is required for a locally hosted model.
 
 For IndicTrans2, use a separate Python 3.11 environment with `backend/requirements-models.txt`. Obtain access to both official AI4Bharat distilled model repositories on Hugging Face and put `HF_TOKEN` in the private environment, or set `INDICTRANS_LOCAL_TO_EN` and `INDICTRANS_LOCAL_FROM_EN` to approved downloaded model directories. Run the gateway using that environment. The model revisions are pinned in `backend/services/local_indictrans.py`. Indic-to-Indic translation pivots through English. Numbers are checked after translation; missing model access returns an explicit service error.
