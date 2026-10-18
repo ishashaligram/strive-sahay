@@ -42,6 +42,8 @@ def models(monkeypatch):
     calls = []
     async def generate(system, data, schema):
         calls.append((system, data))
+        if "Verify field-to-evidence mapping" in system:
+            return {"checks":[{"id":candidate["id"],"supported":True} for candidate in data["candidates"]]}
         if "Rate all eight domains" in system:
             from services.screening import DEFAULT_RUBRIC
             return {"ratings":[{"domain":domain,"rating":4,"fields":[key for key in DEFAULT_RUBRIC[domain][1] if key in data["facts"]],"explanation":"Supported by the confirmed test source."} for domain in DEFAULT_RUBRIC]}

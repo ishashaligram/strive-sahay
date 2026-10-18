@@ -118,3 +118,10 @@ test('even fully provided and confirmed pitch facts cannot skip category questio
  for(const fields of Object.values(ASSESSMENT_DOMAINS)){const key=fields[0];record.questions.push({id:key,field:key,status:'answered',text:'Question',answer:'Beneficiary evidence',rationale:'',guidance:'',translations:{}});}
  assert.equal(canFinalize(record),true);
 });
+
+test('beneficiary is not asked to choose the business category',()=>{
+ const html=renderToStaticMarkup(React.createElement(StructuredBusinessForm,{language:'en',onSubmit:()=>{},onClose:()=>{}}));
+ assert.match(html,/Selected automatically from your product or service/);
+ assert.doesNotMatch(html,/name="trade"/);
+ assert.doesNotMatch(html,/field_overview.trade/);
+});

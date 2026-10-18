@@ -1,3 +1,5 @@
+> **PDF/category update:** PDF tables remain in reading order with row/cell boundaries, and duplicate overprinted text is removed. Extracted facts now require both exact quotations and a separate field-meaning check before being displayed as provided. Business category is derived automatically from the validated product/service; the beneficiary does not choose a category. Verified: 68 backend tests and 59 frontend tests pass; seven live AI tests remain skipped. The specific reported PDF has not yet been provided for verification.
+
 > **Latest update:** access-token inputs have been replaced with phone Sign in/Register and an on-screen OTP for beneficiary, assessor, and program manager. Demo OTP records and sessions are isolated from the existing screening database. Verified: 58 frontend tests, 55 backend tests; seven live AI tests skipped. Production build passes. Account and OTP flow requires the local backend to be running. AI generation still requires the configured Qwen and translation services.
 
 # Frontend handoff for STRIVE SAHAY

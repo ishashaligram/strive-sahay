@@ -5,7 +5,7 @@ export interface Score { assessmentType?: string; stale?: boolean; status: strin
 export interface Report { strengths: string[]; weaknesses: string[]; recommendations: string[]; explanation: string; remainingUnknowns: string[] }
 export interface Plan {sections:Record<string,string>;method:string;language:string}
 export interface Financials {calculations:Record<string,{amount:number;formula:string;unit:string}>;warnings:string[];assumptions:string[];scenarios:{scenario:string;quantity:number;revenue:number;profit:number}[]}
-export interface ScreeningRecord { mediaIds?:string[];updatedAt?:string;createdAt?:string; cohortId?:string;region?:string;trade?:string;criticalMissing?:string[];
+export interface ScreeningRecord { category?:{name:string|null;status:'DETECTED'|'NEEDS_CLARIFICATION';evidence:string|null;sourceField:string;method:string}; mediaIds?:string[];updatedAt?:string;createdAt?:string; cohortId?:string;region?:string;trade?:string;criticalMissing?:string[];
  financialTranslations?:Record<string,Financials>;financials?:Financials;businessPlan?:Plan;businessPlanTranslations?:Record<string,Plan>;assessmentVersions?:Score[];
  recommendation?:{feedbackLanguage?:string;translations?:Record<string,string>;recommendation:string;reason:string;feedbackTranslated:string};
  adminDecision?:{explanationLanguage?:string;translations?:Record<string,string>;decision:string;reason:string;explanationTranslated:string;scope:string};
