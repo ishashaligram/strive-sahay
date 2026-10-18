@@ -6,6 +6,7 @@ import secrets
 import sqlite3
 import uuid
 import unicodedata
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import contextmanager
@@ -24,9 +25,28 @@ from services.category import apply_category
 from services.document_layout import damaged_text
 from services.whisper_service import FasterWhisperService
 from services.phone_auth import presentation_request, demo_path, install_phone_auth
+from services.diagnostics import request_id,logger
 
 load_dotenv(Path(__file__).parent / ".env")
 app = FastAPI(title="STRIVE SAHAY evidence-based screening", version="3.0")
+
+@app.middleware('http')
+async def request_timings(request,call_next):
+    rid=secrets.token_hex(6)
+    token=request_id.set(rid)
+    start=time.perf_counter()
+    status=500
+    logger.info('[API %s] START %s',rid,request.method)
+    try:
+        response=await call_next(request)
+        status=response.status_code
+        response.headers['X-Request-ID']=rid
+        return response
+    finally:
+        route=request.scope.get('route')
+        path=getattr(route,'path','unmatched-route')
+        logger.info('[API %s] END %s %s status=%s duration_ms=%.0f',rid,request.method,path,status,(time.perf_counter()-start)*1000)
+        request_id.reset(token)
 app.add_middleware(CORSMiddleware, allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(","), allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
 security = HTTPBearer()
 STATES = ["DRAFT", "EXTRACTED", "PROVISIONALLY_SCORED", "CLARIFICATION", "FINAL_SCORED", "READY_FOR_ASSESSOR", "SUBMITTED"]

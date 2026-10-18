@@ -22,12 +22,23 @@ export function apiUrl(path:string){
 export class ApiError extends Error{
  constructor(message:string,public status:number,public code:string){super(message);this.name='ApiError';}
 }
+let diagnosticSequence=0;
 export async function api<T>(path: string, body?: unknown): Promise<T> {
+  const diagnosticId=++diagnosticSequence;
+  const label=path.split('?')[0].replace(/\b[0-9a-f-]{16,}\b/gi,':id');
+  const started=performance.now();
+  const method=body===undefined?'GET':'POST';
+  console.info(`[STRIVE API #${diagnosticId}] START`,{method,route:label});
+  const waiting=window.setInterval(()=>console.info(`[STRIVE API #${diagnosticId}] WAITING`,{route:label,elapsedSeconds:Math.round((performance.now()-started)/1000)}),15000);
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 600000);
   try {
     const token = await getSessionToken();
     const response = await fetch(apiUrl(path), {method: body === undefined ? 'GET' : 'POST', headers: {Authorization: 'Bearer ' + token, ...(body instanceof FormData ? {} : {'Content-Type': 'application/json'})}, body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body), signal: controller.signal});
+    const durationMs=Math.round(performance.now()-started);
+    const summary={route:label,status:response.status,durationMs,requestId:response.headers.get('X-Request-ID')};
+    if(durationMs>10000)console.warn(`[STRIVE API #${diagnosticId}] SLOW RESPONSE`,summary);
+    else console.info(`[STRIVE API #${diagnosticId}] RESPONSE`,summary);
     const data = await response.json().catch(() => {throw new Error('Backend returned an unreadable response');});
     if (!response.ok) {
       const details=typeof data.detail==='string'?data.detail:Array.isArray(data.detail)?data.detail.map((item:{msg?:string})=>item.msg||'Invalid input').join('; '):'Request failed';
@@ -35,10 +46,11 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
     }
     return data as T;
   } catch (error) {
+    console.error(`[STRIVE API #${diagnosticId}] FAILED`,{route:label,elapsedMs:Math.round(performance.now()-started),type:error instanceof ApiError?error.code:error instanceof Error?error.name:'UnknownError'});
     if (error instanceof TypeError) throw new Error('Backend unavailable. Start the screening API and retry.');
     if (error instanceof DOMException && error.name === 'AbortError') throw new Error('Processing timed out. Refresh saved progress before retrying.');
     throw error;
-  } finally { window.clearTimeout(timer); }
+  } finally { window.clearTimeout(timer);window.clearInterval(waiting); }
 }
 
 export async function downloadOriginal(id:string){
