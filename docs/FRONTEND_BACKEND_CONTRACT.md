@@ -138,3 +138,14 @@ The assessor receives only assigned cases. The Admin view must be backend-author
 Return JSON errors with detail as a string or Pydantic validation list. Use 401/403 for auth, 409 for workflow conflicts, 422 for invalid input, and 503 for unavailable services. Never return fake extraction data or HTML with an HTTP-success status.
 
 After mapping, verify: authentication; independently selected document/UI languages; actual text/PDF/audio input; evidence references; confirmation/correction; missing-field questions; current scores; plan; assessor ownership; Admin decision; translated beneficiary status; persistence after refresh. Static frontend checks do not prove model, OCR, voice or translation accuracy.
+
+
+## Clarification and readiness scoring (updated)
+
+The beneficiary screen must not display pitch extraction coverage as a readiness score. Extraction scores have `assessmentType: EVIDENCE_COVERAGE_NOT_AI_RATING`. A final readiness assessment requires answered clarification questions across all eight rubric categories, confirmed valid facts for those answers, confirmed critical facts, and no unresolved questions. A supplied pitch alone cannot satisfy this gate.
+
+The frontend requests `/clarification/{id}/round` once after a newly extracted idea, displays actual service errors, and allows explicit retry. Rounds prioritize one question per unasked rubric category. Unknown answers remain unresolved. `/ai-score`, `/finalize`, `/confirm`, and `/submit-to-assessor` enforce the clarification gate on the server.
+
+Qwen receives the original pitch, confirmed facts, and clarification answers. Supporting fields must belong to the rated category. Each category rating is capped by the proportion of its rubric fields actually cited as confirmed evidence; missing evidence cannot earn a full rating. The weighted total remains server calculated. Live model/translation verification still requires reachable configured services.
+
+Malformed nested response data is rejected with a visible error before rendering. Unexpected rendering errors show reload/home recovery controls. These controls do not delete submissions.

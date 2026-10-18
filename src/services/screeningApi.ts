@@ -47,9 +47,20 @@ export async function downloadOriginal(id:string){
  const a=document.createElement('a');a.href=url;a.download='original-upload';a.click();URL.revokeObjectURL(url);
 }
 
+function object(value:unknown):value is Record<string,any>{return !!value&&typeof value==='object'&&!Array.isArray(value);}
+function strings(value:unknown){return Array.isArray(value)&&value.every(item=>typeof item==='string');}
 export function assertScreeningRecord(value:unknown):asserts value is ScreeningRecord{
- const record=value as Partial<ScreeningRecord>|null;
- if(!record||typeof record.id!=='string'||typeof record.state!=='string'||!record.facts||typeof record.facts!=='object'||!Array.isArray(record.sources)||!Array.isArray(record.questions)){
-  throw new ApiError('Backend response does not match the screening contract',502,'CONTRACT');
+ const fail=()=>{throw new ApiError('Backend response does not match the screening contract',502,'CONTRACT');};
+ if(!object(value)||typeof value.id!=='string'||typeof value.state!=='string'||typeof value.title!=='string'||!object(value.facts)||!Array.isArray(value.sources)||!Array.isArray(value.questions))return fail();
+ for(const source of value.sources)if(!object(source)||typeof source.original!=='string'||typeof source.id!=='string')return fail();
+ for(const fact of Object.values(value.facts))if(!object(fact)||typeof fact.status!=='string'||!(fact.value===null||typeof fact.value==='string')||!Array.isArray(fact.claims)||!fact.claims.every(object)||!object(fact.validation)||typeof fact.validation.valid!=='boolean'||!strings(fact.validation.errors))return fail();
+ for(const question of value.questions)if(!object(question)||typeof question.id!=='string'||typeof question.field!=='string'||typeof question.text!=='string'||typeof question.status!=='string'||!object(question.translations))return fail();
+ for(const score of [value.currentScore,value.provisionalScore,value.finalScore].filter(item=>item!=null)){
+  if(!object(score)||!Number.isFinite(score.overallScore)||!object(score.domains))return fail();
+  for(const domain of Object.values(score.domains))if(!object(domain)||!Number.isFinite(domain.rating)||!Number.isFinite(domain.weight)||!strings(domain.supportedFields)||!strings(domain.missingFields))return fail();
  }
+ for(const report of [value.report,...Object.values(value.reportTranslations||{})].filter(item=>item!=null))if(!object(report)||typeof report.explanation!=='string'||!['strengths','weaknesses','recommendations','remainingUnknowns'].every(key=>strings(report[key])))return fail();
+ for(const plan of [value.businessPlan,...Object.values(value.businessPlanTranslations||{})].filter(item=>item!=null))if(!object(plan)||!object(plan.sections)||!Object.values(plan.sections).every(text=>typeof text==='string'))return fail();
+ for(const finances of [value.financials,...Object.values(value.financialTranslations||{})].filter(item=>item!=null))if(!object(finances)||!object(finances.calculations)||!Object.values(finances.calculations).every(object)||!strings(finances.warnings)||!strings(finances.assumptions)||!Array.isArray(finances.scenarios)||!finances.scenarios.every(object))return fail();
+ for(const key of ['roadmap','humanQuestions'])if(value[key]!=null&&(!Array.isArray(value[key])||!value[key].every(object)))return fail();
 }

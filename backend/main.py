@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from dotenv import load_dotenv
 from services.qwen_service import QwenService
 from services.indictrans_service import IndicTransService, LANGUAGES
-from services.screening import extract, score, Question, Report
+from services.screening import extract, score, Question, Report, pending_assessment_domains
 from services.pdf_service import PDFProcessingService
 from services.whisper_service import FasterWhisperService
 
@@ -205,6 +205,7 @@ async def run_extraction(record):
     transition(record, "EXTRACTED")
     persist(record)
     record["provisionalScore"] = score(record["facts"])
+    record["provisionalScore"]["assessmentType"] = "EVIDENCE_COVERAGE_NOT_AI_RATING"
     record["currentScore"] = record["provisionalScore"]
     transition(record, "PROVISIONALLY_SCORED")
     return persist(record)
@@ -293,6 +294,8 @@ def unresolved_answers(record):
 
 
 def require_resolved_answers(record):
+    if pending_assessment_domains(record):
+        raise HTTPException(409, "Complete and confirm the AI clarification answers across all eight assessment categories before scoring or submitting.")
     if unresolved_answers(record):
         raise HTTPException(409, "Missing answers are still unresolved. Add and confirm the information or request mentoring help before continuing.")
 

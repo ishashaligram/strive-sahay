@@ -13,6 +13,7 @@ import {StructuredBusinessForm} from './StructuredBusinessForm';
 export function ScreeningWorkspace({role,language,onLanguageChange}: {role:'beneficiary'|'assessor'; language:SupportedLanguage;onLanguageChange?:(language:SupportedLanguage)=>void}) {
   const t=ui(role==='assessor'?'en':language);
   const translationAttempt=useRef('');
+  const questionAttempt=useRef('');
   const [token,setToken] = useState(sessionStorage.getItem('screening_access_token')||'');
   const [account,setAccount] = useState<{id:string;role:string}|null>(null);
   const [records,setRecords] = useState<ScreeningRecord[]>([]);
@@ -51,6 +52,12 @@ export function ScreeningWorkspace({role,language,onLanguageChange}: {role:'bene
       if(translationAttempt.current!==attempt){translationAttempt.current=attempt;void safeAction('/submissions/'+record.id+'/language',{language});}
     }
   },[language,record?.id,busy]);
+  useEffect(()=>{
+    if(role==='beneficiary'&&record&&!record.questions.length&&!busy&&['EXTRACTED','PROVISIONALLY_SCORED','CLARIFICATION'].includes(record.state)&&questionAttempt.current!==record.id){
+      questionAttempt.current=record.id;
+      void safeAction('/clarification/'+record.id+'/round',{});
+    }
+  },[role,record?.id,record?.questions.length,busy]);
   const viewLanguage=role==='assessor'?'en':language;
   const displayRecord=record?{...record,language:viewLanguage}:undefined;
   const report = record?.reportTranslations?.[viewLanguage] || record?.report;
@@ -84,9 +91,9 @@ export function ScreeningWorkspace({role,language,onLanguageChange}: {role:'bene
         <details><summary className="cursor-pointer text-sm text-teal-700">{t("Original pitch")}</summary><div className="grid md:grid-cols-2 gap-4"><div><h3 className="font-bold">{t('Original pitch')} · {record.sources[0]?.language||record.language}</h3><p className="whitespace-pre-wrap">{record.sources.map(source=>source.original).join('\n\n')||t('Validated business fact sheet')}</p></div><div><h3 className="font-bold">{t("English processing text")}</h3><p className="whitespace-pre-wrap">{record.sources.map(source=>source.english).filter(Boolean).join('\n\n')||t('Translation pending')}</p></div></div></details>
         {record.sources.some(s=>s.translationUncertain) && <p className="text-amber-700">{t('languageReviewNotice')}</p>}
         {['DRAFT','EXTRACTED'].includes(record.state) && <button disabled={!!busy} onClick={()=>void safeAction('/submissions/'+record.id+'/extract',{})} className="border p-3 rounded-xl">{t("Retry extraction")}</button>}
-        {record.currentScore && <details className="border-t pt-4 space-y-2"><summary className="cursor-pointer font-semibold">{t("Transparent score breakdown")}</summary><p className="text-2xl font-bold">{record.currentScore.overallScore}/10 · {knownText(record.currentScore.status,viewLanguage)}{record.currentScore.stale?' · '+t('STALE — reassess required'):''}</p><p>{t(record.currentScore.scoreMeaning,{defaultValue:record.currentScore.scoreMeaning})}</p><p>{t('Evidence completeness')}: {record.currentScore.completeness}% · {t('Confidence')}: {knownText(record.currentScore.confidence,viewLanguage)}</p><p>{knownText(record.currentScore.feasibility,viewLanguage)}</p>{record.currentScore.unitContribution && <p>{record.currentScore.unitContribution.label}: {record.currentScore.unitContribution.currency}{record.currentScore.unitContribution.amount} / {record.currentScore.unitContribution.unit}</p>}
+        {record.currentScore && (role==='assessor'||(record.finalScore&&canFinalize(record))) && <details className="border-t pt-4 space-y-2"><summary className="cursor-pointer font-semibold">{t("Transparent score breakdown")}</summary><p className="text-2xl font-bold">{record.currentScore.overallScore}/10 · {knownText(record.currentScore.status,viewLanguage)}{record.currentScore.stale?' · '+t('STALE — reassess required'):''}</p><p>{t(record.currentScore.scoreMeaning,{defaultValue:record.currentScore.scoreMeaning})}</p><p>{t('Evidence completeness')}: {record.currentScore.completeness}% · {t('Confidence')}: {knownText(record.currentScore.confidence,viewLanguage)}</p><p>{knownText(record.currentScore.feasibility,viewLanguage)}</p>{record.currentScore.unitContribution && <p>{record.currentScore.unitContribution.label}: {record.currentScore.unitContribution.currency}{record.currentScore.unitContribution.amount} / {record.currentScore.unitContribution.unit}</p>}
           <details><summary>{t("Transparent score breakdown")}</summary>{Object.entries(record.currentScore.domains).map(([key,d])=><div key={key} className="py-2 border-b"><strong>{t(key,{defaultValue:key})}: {d.rating}/5 · {t('Weight')} {Math.round(d.weight*100)}%</strong><p className="text-xs">{t('Supported')}: {d.supportedFields.map(field=>t(fieldName(field),{defaultValue:field})).join(', ')||t('None')} · {t('Missing')}: {d.missingFields.map(field=>t(fieldName(field),{defaultValue:field})).join(', ')||t('None')}</p></div>)}</details>
-          {record.finalScore && <p className="text-sm">{t('Provisional')}: {record.provisionalScore?.overallScore}/10 · {t('Final')}: {record.finalScore.overallScore}/10</p>}
+          {record.finalScore && <p className="text-sm">{t('Final')}: {record.finalScore.overallScore}/10</p>}
         </details>}
       </div>
       {role==='beneficiary'&&!LOCKED_STATES.has(record.state)&&<div className="bg-teal-50 border border-teal-200 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-3"><p className="text-teal-950">{t(canFinalize(record)?'confirmFacts':'missingAnswerNotice')}</p><button disabled={!!busy} className="bg-teal-600 text-white rounded-xl p-3" onClick={()=>{setEditStructured(true);setStructured(true);}}>{t('Add / correct business facts')}</button></div>}

@@ -16,7 +16,7 @@ export function StructuredBusinessForm({language,onSubmit,onClose,record}:{langu
   let active=true;
   void Promise.allSettled([api<typeof schema>('/schema'),api<typeof cohorts>('/cohorts')]).then(([schemaResult,cohortResult])=>{
    if(!active)return;
-   if(schemaResult.status==='fulfilled'&&schemaResult.value?.modules&&schemaResult.value?.critical)setSchema(schemaResult.value);
+   if(schemaResult.status==='fulfilled'&&schemaResult.value?.modules&&Array.isArray(schemaResult.value?.critical)&&Object.values(schemaResult.value.modules).every(fields=>Array.isArray(fields)&&fields.every(field=>typeof field==='string')))setSchema(schemaResult.value);
    if(cohortResult.status==='fulfilled'&&Array.isArray(cohortResult.value))setCohorts(cohortResult.value);
    setOptionsWarning(schemaResult.status==='rejected'||cohortResult.status==='rejected');
   });

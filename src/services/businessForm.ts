@@ -56,5 +56,8 @@ export function unresolvedQuestions(record:ScreeningRecord){
  return record.questions.filter(q=>q.status==='pending'||(q.status==='unknown'&&!(record.facts[q.field]?.confirmed&&record.facts[q.field]?.validation.valid&&record.facts[q.field]?.status==='PROVIDED')));
 }
 export function canFinalize(record:ScreeningRecord){
- return !unresolvedQuestions(record).length&&CRITICAL_FIELDS.every(key=>record.facts[key]?.confirmed&&record.facts[key]?.validation.valid&&record.facts[key]?.status==='PROVIDED');
+ return !pendingAssessmentDomains(record).length&&!unresolvedQuestions(record).length&&CRITICAL_FIELDS.every(key=>record.facts[key]?.confirmed&&record.facts[key]?.validation.valid&&record.facts[key]?.status==='PROVIDED');
 }
+
+export const ASSESSMENT_DOMAINS:Record<string,string[]>={"businessClarity": ["overview.productService", "overview.proposedLocation"], "customerDemand": ["market.targetCustomers", "market.demandEvidence"], "marketPotential": ["market.customerProblem", "market.salesChannels"], "financialViability": ["finance.initialInvestment", "finance.unitCost", "finance.sellingPrice", "finance.monthlyExpenses", "finance.expectedSales"], "operationalFeasibility": ["operations.equipment", "operations.suppliers", "operations.capacity"], "competitiveAdvantage": ["market.competition", "market.differentiation"], "entrepreneurReadiness": ["operations.skills", "operations.staffing"], "riskAwareness": ["risk.marketRisks", "risk.financialRisks", "risk.operationalRisks", "risk.mitigation", "risk.compliance"]};
+export function pendingAssessmentDomains(record:ScreeningRecord){return Object.keys(ASSESSMENT_DOMAINS).filter(domain=>!record.questions.some(q=>q.status==='answered'&&ASSESSMENT_DOMAINS[domain].includes(q.field)&&record.facts[q.field]?.confirmed&&record.facts[q.field]?.validation.valid&&record.facts[q.field]?.status==='PROVIDED'));}

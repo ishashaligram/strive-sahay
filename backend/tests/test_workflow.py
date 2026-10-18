@@ -44,7 +44,7 @@ def models(monkeypatch):
         calls.append((system, data))
         if "Rate all eight domains" in system:
             from services.screening import DEFAULT_RUBRIC
-            return {"ratings":[{"domain":domain,"rating":4,"fields":list(data["facts"])[:1],"explanation":"Supported by the confirmed test source."} for domain in DEFAULT_RUBRIC]}
+            return {"ratings":[{"domain":domain,"rating":4,"fields":[key for key in DEFAULT_RUBRIC[domain][1] if key in data["facts"]],"explanation":"Supported by the confirmed test source."} for domain in DEFAULT_RUBRIC]}
         if "Detect the language" in system:
             text = data["text"]
             lang = "mr" if "मी" in text else "hi" if "मैं" in text else "en"
@@ -57,6 +57,8 @@ def models(monkeypatch):
             for s in data["sources"][1:]:
                 facts["finance.initialInvestment"] = {"status": "PROVIDED", "claims": [claim(s["english"], source_id=s["id"])]}
             return {"facts": facts}
+        if "requested count" in system:
+            return {"questions":[{"field":field,"text":"Please describe "+field,"rationale":"Document this category.","guidance":"Supply your own evidence."} for field in data["eligibleFields"]]}
         if "question" in system.lower():
             field = data.get("field") or data["eligibleFields"][0]
             return {"field": field, "text": "What investment have you planned for this business?", "rationale": "The investment is not documented.", "guidance": "State your own plan, or say you do not know yet."}
@@ -312,6 +314,18 @@ def test_explicit_correction_supersedes_only_target_field():
 
 
 def prepare_confirmed(client, record):
+    from services.screening import DEFAULT_RUBRIC
+    sid=record["id"]
+    for _ in range(4):
+        current=client.get(f"/api/submissions/{sid}",headers=AUTH).json()
+        for question in current["questions"]:
+            if question["status"]!="answered":
+                response=client.post(f"/api/clarification/{sid}/answer",headers=AUTH,json={"question_id":question["id"],"answer":"Explicit test response for "+question["field"],"language":"en"})
+                assert response.status_code==200,response.text
+        covered={domain for domain,(_,keys) in DEFAULT_RUBRIC.items() if any(q["field"] in keys for q in current["questions"])}
+        if len(covered)==8:break
+        response=client.post(f"/api/clarification/{sid}/round",headers=AUTH,json={})
+        assert response.status_code==200,response.text
     fields={key:{"value":"Explicit test beneficiary statement for "+key} for key in FIELDS}
     response=client.post("/api/submissions/"+record["id"]+"/fields",headers=AUTH,json={"title":"Test profile","language":record["language"],"fields":fields})
     assert response.status_code==200,response.text
@@ -341,3 +355,34 @@ def test_unknown_answer_blocks_progress_and_does_not_store_draft_as_evidence(cli
     assert next_round.status_code == 200
     assert len(next_round.json()["questions"]) == len(saved["questions"])
     assert next_round.json()["questions"][0]["status"] == "unknown"
+
+
+def test_pitch_alone_cannot_receive_ai_readiness_score(client, models):
+    record=create(client)
+    assert record["currentScore"]["assessmentType"]=="EVIDENCE_COVERAGE_NOT_AI_RATING"
+    fields={key:{"value":"Explicit test statement for "+key} for key in FIELDS}
+    sid=record["id"]
+    assert client.post(f"/api/submissions/{sid}/fields",headers=AUTH,json={"title":"Test profile","language":"en","fields":fields}).status_code==200
+    assert client.post(f"/api/submissions/{sid}/confirm-fields",headers=AUTH,json={"fields":list(FIELDS)}).status_code==200
+    response=client.post(f"/api/submissions/{sid}/ai-score",headers=AUTH,json={})
+    assert response.status_code==409
+    assert "eight assessment categories" in response.json()["detail"]
+    assert not any("Rate all eight domains" in system for system,_ in models)
+
+
+def test_sparse_category_evidence_caps_an_optimistic_model_score(client, models):
+    from services.program import CRITICAL
+    record=create(client)
+    prepare_confirmed(client,record)
+    sid=record["id"]
+    current=client.get(f"/api/submissions/{sid}",headers=AUTH).json()
+    keep=set(CRITICAL)|{q["field"] for q in current["questions"]}
+    rejected=[key for key in FIELDS if key not in keep]
+    assert client.post(f"/api/submissions/{sid}/confirm-fields",headers=AUTH,json={"fields":[],"rejected":rejected}).status_code==200
+    response=client.post(f"/api/submissions/{sid}/ai-score",headers=AUTH,json={})
+    assert response.status_code==200,response.text
+    assert response.json()["currentScore"]["overallScore"]<7
+    scoring_input=[data for system,data in models if "Rate all eight domains" in system][-1]
+    assert scoring_input["originalPitch"]
+    assert len(scoring_input["clarificationAnswers"])>=8
+    assert scoring_input["clarificationAnswers"][0]["answer"]

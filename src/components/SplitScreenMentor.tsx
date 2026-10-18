@@ -1,5 +1,5 @@
 import {ui,knownText} from '../services/uiI18n';
-import {fieldName,LOCKED_STATES,unresolvedQuestions,canFinalize} from '../services/businessForm';
+import {fieldName,LOCKED_STATES,unresolvedQuestions,canFinalize,pendingAssessmentDomains} from '../services/businessForm';
 import {TranslationNotice} from './TranslationNotice';
 import React, {useState, useRef, useEffect} from 'react';
 import {SupportedLanguage} from '../types';
@@ -35,7 +35,8 @@ export function SplitScreenMentor({record, busy, onAction, onUpdate}: {record: S
   };
   return <div className="space-y-4">
     <section className="lg:col-span-5 bg-white border rounded-2xl p-6 space-y-4">
-      <h2 className="text-lg font-bold">{t("AI clarification & mentoring")}</h2><p className="text-xs text-slate-500">{record.questions.filter(q=>q.status!=='pending').length} {t('Saved responses')} · {t('Question limit')}: {record.maxQuestions}</p>
+      <h2 className="text-lg font-bold">{t("AI clarification & mentoring")}</h2><p className="text-xs text-slate-500">{record.questions.filter(q=>q.status==='answered').length} {t('Saved responses')} · {8-pendingAssessmentDomains(record).length}/8 {t('Confirmed')}</p>
+      {!record.finalScore&&<p className="bg-teal-50 text-teal-900 p-3 rounded-xl text-sm">{t('assessmentAfterAnswers')}</p>}
       {question && !locked ? <>
         <TranslationNotice language={record.language as SupportedLanguage} pending={!question.translations[record.language]}/><p className="font-semibold">{question.translations[record.language] || question.text}</p>
         <details><summary>{t("Why this matters / AI guidance")}</summary><p>{question.localizedRationale?.[record.language] || question.rationale}</p><p>{question.localizedGuidance?.[record.language] || question.guidance}</p></details>
