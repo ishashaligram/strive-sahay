@@ -10,7 +10,7 @@ MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 DB_NAME = os.getenv("MONGODB_DB", "strive_sahay")
 
 def import_strive_datasets():
-    print(f"Connecting to MongoDB at {MONGODB_URI}...")
+    print("Connecting to the configured MongoDB service (credentials hidden)...")
     try:
         client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=2000)
         db = client[DB_NAME]
@@ -57,4 +57,10 @@ def import_strive_datasets():
         print("Note: In standalone client mode, STRIVE SAHAY loads this dataset via client-side storage persistence.")
 
 if __name__ == "__main__":
+    import argparse
+    parser=argparse.ArgumentParser(description="Legacy destructive DEMO dataset importer")
+    parser.add_argument("--allow-destructive-demo-reset",action="store_true",help="Explicitly authorize replacement of trades and assessors in a disposable demonstration database")
+    args=parser.parse_args()
+    if not args.allow_destructive_demo_reset:
+        parser.error("Refusing to delete collections. Use only on an explicitly disposable demo database with --allow-destructive-demo-reset.")
     import_strive_datasets()

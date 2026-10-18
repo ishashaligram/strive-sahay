@@ -1,85 +1,40 @@
-import os
 import io
-from typing import Dict, Any, Optional
-
-try:
-    import pdfplumber
-except ImportError:
-    pdfplumber = None
+import os
+import httpx
 
 class PDFProcessingService:
-    """
-    Extracts text from uploaded PDF business plans using pdfplumber.
-    Detects scanned or image-based PDFs without digital text and flags them for OCR.
-    """
-
-    @classmethod
-    def extract_text_from_pdf(cls, file_bytes: bytes, filename: str = "business_plan.pdf") -> Dict[str, Any]:
-        """
-        Extracts embedded digital text from PDF.
-        If extracted text is under threshold, flags the document as scanned/requiring OCR.
-        """
-        extracted_pages = []
-        total_text_length = 0
-        is_scanned = False
-        ocr_required = False
-
-        if pdfplumber is not None:
-            try:
-                with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-                    num_pages = len(pdf.pages)
-                    for i, page in enumerate(pdf.pages):
-                        page_text = page.extract_text() or ""
-                        clean_text = page_text.strip()
-                        extracted_pages.append({
-                            "page_number": i + 1,
-                            "text": clean_text,
-                            "char_count": len(clean_text)
-                        })
-                        total_text_length += len(clean_text)
-
-                # If the entire PDF has less than 30 characters of digital text, it is scanned
-                if total_text_length < 30:
-                    is_scanned = True
-                    ocr_required = True
-                    full_text = f"[Scanned PDF Document: '{filename}' contains images without digital text. Flagged for OCR processing.]"
-                else:
-                    full_text = "\n\n".join(p["text"] for p in extracted_pages if p["text"])
-
-                return {
-                    "filename": filename,
-                    "num_pages": num_pages,
-                    "full_text": full_text,
-                    "pages": extracted_pages,
-                    "total_characters": total_text_length,
-                    "is_scanned": is_scanned,
-                    "ocr_required": ocr_required,
-                    "engine": "pdfplumber v0.11",
-                    "status": "FLAGGED_FOR_OCR" if is_scanned else "TEXT_EXTRACTED_SUCCESS"
-                }
-            except Exception as e:
-                # Corrupt or unreadable PDF
-                return {
-                    "filename": filename,
-                    "num_pages": 1,
-                    "full_text": f"[Error reading PDF file: {str(e)}. Flagged for OCR manual review.]",
-                    "pages": [],
-                    "total_characters": 0,
-                    "is_scanned": True,
-                    "ocr_required": True,
-                    "engine": "pdfplumber",
-                    "status": "ERROR_FLAGGED_FOR_OCR"
-                }
-
-        # Fallback when running without pdfplumber dependency locally
-        return {
-            "filename": filename,
-            "num_pages": 1,
-            "full_text": f"[Extracted from digital PDF '{filename}']\nBusiness proposal for micro-enterprise incubation.\nPrimary Sector: Food Processing & Agro-allied.\nStartup capital required: ₹35,000 for equipment and food-grade packaging.",
-            "pages": [{"page_number": 1, "text": "Extracted business plan content.", "char_count": 32}],
-            "total_characters": 32,
-            "is_scanned": False,
-            "ocr_required": False,
-            "engine": "pdfplumber-fallback",
-            "status": "TEXT_EXTRACTED_SUCCESS"
-        }
+    @staticmethod
+    def extract_text_from_pdf(file_bytes, filename="proposal.pdf"):
+        import pdfplumber
+        pages=[]
+        needs_ocr=False
+        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+            for number,page in enumerate(pdf.pages,1):
+                tables=page.find_tables()
+                bounds=[t.bbox for t in tables]
+                def outside_tables(obj):
+                    if obj.get("object_type")!="char":
+                        return True
+                    x=(obj.get("x0",0)+obj.get("x1",0))/2
+                    y=(obj.get("top",0)+obj.get("bottom",0))/2
+                    return not any(x0<=x<=x1 and y0<=y<=y1 for x0,y0,x1,y1 in bounds)
+                text=page.filter(outside_tables).extract_text(layout=True) or ""
+                table_texts=[]
+                for table in tables:
+                    rows=table.extract()
+                    table_texts.append("\n".join(" | ".join(str(cell or "") for cell in row) for row in rows))
+                combined="\n\n".join([text.strip()]+table_texts).strip()
+                needs_ocr=needs_ocr or not combined or combined.count("\ufffd")>max(1,len(combined)//100)
+                pages.append({"page_number":number,"text":combined,"tables":table_texts})
+        if not pages or needs_ocr:
+            endpoint=os.getenv("OCR_ENDPOINT")
+            if not endpoint:
+                raise ValueError("Scanned or garbled document requires OCR_ENDPOINT. Upload a searchable replacement or paste reviewed text.")
+            headers={"Authorization":"Bearer "+os.environ["OCR_API_KEY"]} if os.getenv("OCR_API_KEY") else {}
+            response=httpx.post(endpoint,headers=headers,files={"file":(filename,file_bytes,"application/pdf")},timeout=float(os.getenv("AI_TIMEOUT","180")))
+            response.raise_for_status()
+            data=response.json()
+            text=data["text"]
+            if not isinstance(text,str) or not text.strip():raise ValueError("OCR returned no text")
+            return {"full_text":text,"pages":data.get("pages",[]),"is_scanned":True}
+        return {"full_text":"\n\n".join("[Page "+str(p["page_number"])+"]\n"+p["text"] for p in pages),"pages":pages,"is_scanned":False}

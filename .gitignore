@@ -6,3 +6,16 @@ coverage/
 *.log
 .env*
 !.env.example
+
+.runtime-python/
+backend/*.sqlite3*
+__pycache__/
+.pytest_cache/
+
+
+.backups/
+demo-access.txt
+
+.pnpm-store/
+.publish-repo/
+output/

@@ -1,1 +1,3 @@
 @import "tailwindcss";
+
+@media print { nav, footer, button, select, textarea, input, header { display:none !important; } body { background:white !important; } #business-plan { break-before:page; } #business-plan h3 { break-after:avoid; } #business-plan p { orphans:3; widows:3; } }

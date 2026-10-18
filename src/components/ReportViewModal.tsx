@@ -169,7 +169,7 @@ export const ReportViewModal: React.FC<ReportViewModalProps> = ({
               </div>
               <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
                 <span className="text-slate-400 font-semibold block text-[10px]">Compliance & FSSAI</span>
-                <span className="font-medium text-slate-800">{profile.risk.compliance.value || 'Basic FoSCoS planned'}</span>
+                <span className="font-medium text-slate-800">{profile.risk.compliance.value || 'Missing'}</span>
               </div>
             </div>
           </div>
@@ -224,7 +224,7 @@ export const ReportViewModal: React.FC<ReportViewModalProps> = ({
                 <span>4. Human Assessor Final Evaluation</span>
               </span>
               <span className="font-bold text-slate-700">
-                Final Score: {review ? review.finalScore.toFixed(1) : assessment ? assessment.overallScore.toFixed(1) : '7.8'} / 10.0
+                Final Score: {review ? review.finalScore.toFixed(1) : assessment ? assessment.overallScore.toFixed(1) : 'Not assessed'} / 10.0
               </span>
             </div>
 
@@ -232,7 +232,7 @@ export const ReportViewModal: React.FC<ReportViewModalProps> = ({
               <strong>Assessor Recommendation:</strong>{' '}
               {review
                 ? review.feedbackEn
-                : 'Approved for Tata STRIVE Incubation Support. Cold-pressed traditional recipe has demonstrated local demand and viable unit economics. Proceed with basic FoSCoS registration.'}
+                : 'No assessor decision has been recorded.'}
             </p>
 
             <div className="flex items-center justify-between text-[10px] text-slate-400 pt-3 border-t border-slate-200">

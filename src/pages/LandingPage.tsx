@@ -96,7 +96,7 @@ export const LandingPage: React.FC = () => {
                 <ul className="text-[11px] text-slate-400 space-y-1.5">
                   <li className="flex items-center space-x-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 flex-shrink-0" />
-                    <span>7 Indian languages supported</span>
+                    <span>7 languages with configured translation</span>
                   </li>
                   <li className="flex items-center space-x-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 flex-shrink-0" />
@@ -104,7 +104,7 @@ export const LandingPage: React.FC = () => {
                   </li>
                   <li className="flex items-center space-x-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 flex-shrink-0" />
-                    <span>Mobile OTP authentication</span>
+                    <span>Private account authentication</span>
                   </li>
                 </ul>
               </div>
@@ -188,15 +188,15 @@ export const LandingPage: React.FC = () => {
                 <ul className="text-[11px] text-slate-400 space-y-1.5">
                   <li className="flex items-center space-x-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-                    <span>Live cohort & trade analytics</span>
+                    <span>Local demonstration cohort analytics</span>
                   </li>
                   <li className="flex items-center space-x-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-                    <span>Concurrency-safe assessor allocation</span>
+                    <span>Backend-configured assessor assignments</span>
                   </li>
                   <li className="flex items-center space-x-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-                    <span>Secure administrator credentials</span>
+                    <span>Legacy administration preview</span>
                   </li>
                 </ul>
               </div>

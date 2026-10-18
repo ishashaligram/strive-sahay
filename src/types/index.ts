@@ -29,10 +29,6 @@ export interface BusinessProfile {
   documentType?: string;
   submittedAt: string;
   updatedAt: string;
-  isDemoRecord?: boolean;
-  correctedSummary?: string;
-  scoreHistory?: ScoreHistoryEntry[];
-  inconsistencies?: InconsistencyItem[];
 
   // 5 Key Modules
   overview: {
@@ -176,7 +172,6 @@ export interface Beneficiary {
   assignedAssessorId?: string;
   waitingForAssessor: boolean;
   activeProfileId?: string;
-  isDemoRecord?: boolean;
 }
 
 export interface Assessor {
@@ -191,7 +186,6 @@ export interface Assessor {
   isAvailable: boolean;
   ratingAverage: number;
   completedReviewsCount: number;
-  isDemoRecord?: boolean;
 }
 
 export interface Cohort {
@@ -203,9 +197,6 @@ export interface Cohort {
   startDate: string;
   targetTrades: string[];
   totalBeneficiaries: number;
-  activeCases?: number;
-  completionRate?: number;
-  isDemoRecord?: boolean;
 }
 
 export interface Trade {
@@ -229,16 +220,6 @@ export interface StaffingAlert {
   message: string;
 }
 
-// 4 Official Assessor Recommendation Outcomes
-export type AssessorOutcome =
-  | 'FURTHER_MENTORING_REQUIRED'
-  | 'PILOT_MARKET_VALIDATION'
-  | 'BUSINESS_LAUNCH_READY'
-  | 'INVESTMENT_READINESS_REVIEW'
-  | 'APPROVED_FOR_INCUBATION'
-  | 'NEEDS_FURTHER_REFINEMENT'
-  | 'REJECTED';
-
 export interface HumanReview {
   id: string;
   profileId: string;
@@ -246,144 +227,10 @@ export interface HumanReview {
   assessorName: string;
   evaluatedAt: string;
   finalScore: number; // out of 10.0
-  recommendationDecision: AssessorOutcome;
+  recommendationDecision: 'APPROVED_FOR_INCUBATION' | 'NEEDS_FURTHER_REFINEMENT' | 'REJECTED';
   feedbackEn: string;
   feedbackTranslated: string;
   targetLanguage: SupportedLanguage;
   domainOverrides: Partial<Record<DomainKey, { rating: number; justification: string }>>;
-  correctedSummary?: string;
-  clarificationRequest?: string;
-  clarificationResponse?: string;
   status: 'DRAFT' | 'SUBMITTED';
-}
-
-// Inconsistencies, Contradictions & Unrealistic Financials
-export type InconsistencyType =
-  | 'CONTRADICTION'
-  | 'UNREALISTIC_FINANCIAL'
-  | 'UNCERTAIN_ASSUMPTION'
-  | 'CRITICAL_MISSING';
-
-export interface InconsistencyItem {
-  id: string;
-  fieldKey: string;
-  issueType: InconsistencyType;
-  severity: 'critical' | 'warning';
-  title: Record<string, string>;
-  description: Record<string, string>;
-  valueA?: { value: string; source: string; timestamp?: string };
-  valueB?: { value: string; source: string; timestamp?: string };
-  deterministicCalculations?: {
-    formula: string;
-    result: string;
-    benchmark: string;
-    status: 'PASS' | 'WARN' | 'FAIL';
-  };
-  resolutionStatus: 'UNRESOLVED' | 'RESOLVED' | 'DONT_KNOW';
-  resolvedValue?: string;
-  resolvedAt?: string;
-  blocksSubmission: boolean;
-}
-
-// Score History Tracking
-export interface ScoreHistoryEntry {
-  versionNumber: number;
-  evaluatedAt: string;
-  overallScore: number;
-  completenessPercentage: number;
-  reason: string;
-  changedFields?: string[];
-  deltaFromPrevious?: number;
-  domains: Record<DomainKey, { rating: number; explanation: string }>;
-}
-
-// Beneficiary Business Development Roadmap
-export interface RoadmapTask {
-  id: string;
-  domain: DomainKey;
-  title: Record<string, string>;
-  missingElement: Record<string, string>;
-  whyItMatters: Record<string, string>;
-  howToImprove: Record<string, string>;
-  whatActionToTake: Record<string, string>;
-  dayOffset: number;
-  status: 'todo' | 'in_progress' | 'completed';
-  evidenceRequired: boolean;
-  evidenceUploaded?: {
-    fileName: string;
-    fileType: string;
-    uploadedAt: string;
-    previewUrl?: string;
-    notes?: string;
-  };
-}
-
-export interface StartupCostCalculator {
-  capexItems: { name: string; cost: number; category: string }[];
-  totalCapex: number;
-  unitCost: number;
-  sellingPrice: number;
-  monthlyExpectedVolume: number;
-  monthlyFixedCosts: number;
-  grossMarginPercent: number;
-  monthlyGrossProfit: number;
-  monthlyNetProfit: number;
-}
-
-export interface BreakevenAnalysis {
-  fixedCostsMonthly: number;
-  contributionMarginPerUnit: number;
-  breakevenUnitsMonthly: number;
-  breakevenRevenueMonthly: number;
-  capacityUtilizationAtBreakeven: number;
-  isViable: boolean;
-  riskAssessment: string;
-}
-
-export interface MarketValidationChecklist {
-  id: string;
-  title: Record<string, string>;
-  targetCount: number;
-  completedCount: number;
-  isCompleted: boolean;
-  notes: string[];
-}
-
-export interface SkillMentoringActivity {
-  id: string;
-  title: Record<string, string>;
-  category: 'Tata STRIVE Training' | 'Government Schemes (Mudra/Standup)' | 'FSSAI/Compliance' | 'Financial Literacy';
-  description: Record<string, string>;
-  actionUrl?: string;
-  isCompleted: boolean;
-}
-
-export interface BusinessRoadmap {
-  id: string;
-  profileId: string;
-  beneficiaryId: string;
-  createdAt: string;
-  updatedAt: string;
-  timeframe: '7_days' | '30_days';
-  tasks: RoadmapTask[];
-  calculator: StartupCostCalculator;
-  breakeven: BreakevenAnalysis;
-  checklist: MarketValidationChecklist[];
-  skills: SkillMentoringActivity[];
-  overallProgressPercentage: number;
-  reassessmentRequested: boolean;
-  humanMentoringRequested: boolean;
-  humanMentoringNotes?: string;
-}
-
-// System Status for Python/Ollama/Firebase services
-export interface BackendSystemStatus {
-  fastapi: boolean;
-  fasterWhisper: boolean;
-  pdfplumber: boolean;
-  indicTrans2: boolean;
-  ollamaQwen3: boolean;
-  ollamaModel: string;
-  firebase: boolean;
-  lastChecked: string;
 }

@@ -51,43 +51,8 @@ export class AudioService {
     });
   }
 
-  /**
-   * Simulates faster-whisper multilingual speech transcription
-   */
-  static async transcribeAudio(
-    audioBlob: Blob,
-    preferredLanguage: SupportedLanguage
-  ): Promise<{ originalTranscript: string; translatedEn: string; detectedLanguage: string; confidence: number }> {
-    // Artificial small delay to simulate faster-whisper pipeline
-    await new Promise((r) => setTimeout(r, 1200));
-
-    if (preferredLanguage === 'mr') {
-      return {
-        detectedLanguage: 'Marathi (मराठी)',
-        confidence: 0.96,
-        originalTranscript:
-          'मी सोलापूर मध्ये घरगुती लोणचे आणि अस्सल महाराष्ट्रीयन मसाले बनवण्याचा उद्योग सुरू करू इच्छित आहे. यात आंबा, लिंबू, मिरचीचे पारंपारिक लोणचे आणि गोडा मसाला बनवून काचेच्या बरणीत स्थानिक सोसायट्या आणि किराणा दुकानांमध्ये विकण्याची माझी योजना आहे.',
-        translatedEn:
-          'I want to start a homemade pickles and authentic Maharashtrian spices business in Solapur. My plan is to produce traditional mango, lemon, and chili pickles along with goda masala, packaged in glass jars for sale to local housing societies and grocery stores.',
-      };
-    } else if (preferredLanguage === 'hi') {
-      return {
-        detectedLanguage: 'Hindi (हिंदी)',
-        confidence: 0.94,
-        originalTranscript:
-          'मैं घर पर पारंपरिक अचार और शुद्ध मसालों का व्यवसाय शुरू करना चाहता हूँ। आम, नींबू और हरी मिर्च का अचार शीशे के जार में पैक करके स्थानीय सोसायटियों और किराना दुकानों में बेचने की योजना है।',
-        translatedEn:
-          'I want to start a traditional homemade pickle and pure spices enterprise. The plan is to package mango, lemon, and green chili pickles in glass jars to sell to local housing societies and grocery shops.',
-      };
-    } else {
-      return {
-        detectedLanguage: 'English',
-        confidence: 0.97,
-        originalTranscript:
-          'I want to launch an artisanal homemade pickle and traditional spice processing micro-enterprise, focusing on preservative-free recipes packaged in glass jars for direct delivery to housing societies.',
-        translatedEn:
-          'I want to launch an artisanal homemade pickle and traditional spice processing micro-enterprise, focusing on preservative-free recipes packaged in glass jars for direct delivery to housing societies.',
-      };
-    }
+  cancelRecording(): void {
+    if (this.mediaRecorder?.state === 'recording') this.mediaRecorder.stop();
+    this.mediaRecorder?.stream.getTracks().forEach(track => track.stop());
   }
 }

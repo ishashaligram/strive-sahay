@@ -73,7 +73,6 @@ export const STRIVE_COHORTS: Cohort[] = [
     startDate: '2024-07-01',
     targetTrades: ['food_processing', 'retail_kirana'],
     totalBeneficiaries: 28,
-    isDemoRecord: true,
   },
   {
     id: 'cohort_solapur_women_2024',
@@ -84,7 +83,6 @@ export const STRIVE_COHORTS: Cohort[] = [
     startDate: '2024-08-15',
     targetTrades: ['food_processing', 'tailoring_garments'],
     totalBeneficiaries: 24,
-    isDemoRecord: true,
   },
   {
     id: 'cohort_nashik_rural_2024',
@@ -95,7 +93,6 @@ export const STRIVE_COHORTS: Cohort[] = [
     startDate: '2024-06-10',
     targetTrades: ['solar_electrician', 'automotive_repair'],
     totalBeneficiaries: 30,
-    isDemoRecord: true,
   },
   {
     id: 'cohort_nagpur_incubate_2024',
@@ -106,7 +103,6 @@ export const STRIVE_COHORTS: Cohort[] = [
     startDate: '2024-09-01',
     targetTrades: ['beauty_wellness', 'tailoring_garments', 'food_processing'],
     totalBeneficiaries: 22,
-    isDemoRecord: true,
   },
 ];
 
@@ -123,7 +119,6 @@ export const INITIAL_ASSESSORS: Assessor[] = [
     isAvailable: true,
     ratingAverage: 4.8,
     completedReviewsCount: 34,
-    isDemoRecord: true,
   },
   {
     id: 'assessor_sharma_02',
@@ -137,7 +132,6 @@ export const INITIAL_ASSESSORS: Assessor[] = [
     isAvailable: true,
     ratingAverage: 4.9,
     completedReviewsCount: 42,
-    isDemoRecord: true,
   },
   {
     id: 'assessor_kulkarni_03',
@@ -151,7 +145,6 @@ export const INITIAL_ASSESSORS: Assessor[] = [
     isAvailable: true,
     ratingAverage: 4.7,
     completedReviewsCount: 29,
-    isDemoRecord: true,
   },
   {
     id: 'assessor_patil_04',
@@ -165,7 +158,6 @@ export const INITIAL_ASSESSORS: Assessor[] = [
     isAvailable: true,
     ratingAverage: 4.95,
     completedReviewsCount: 51,
-    isDemoRecord: true,
   },
 ];
 
@@ -251,7 +243,6 @@ export const HISTORICAL_BENEFICIARIES: Beneficiary[] = [
     currentStatus: 'assessed',
     assignedAssessorId: 'assessor_deshmukh_01',
     waitingForAssessor: false,
-    isDemoRecord: true,
   },
   {
     id: 'ben_hist_02',
@@ -268,7 +259,6 @@ export const HISTORICAL_BENEFICIARIES: Beneficiary[] = [
     currentStatus: 'assessed',
     assignedAssessorId: 'assessor_kulkarni_03',
     waitingForAssessor: false,
-    isDemoRecord: true,
   },
   {
     id: 'ben_hist_03',
@@ -285,7 +275,6 @@ export const HISTORICAL_BENEFICIARIES: Beneficiary[] = [
     currentStatus: 'submitted_to_assessor',
     assignedAssessorId: 'assessor_deshmukh_01',
     waitingForAssessor: false,
-    isDemoRecord: true,
   },
   {
     id: 'ben_hist_04',
@@ -301,7 +290,6 @@ export const HISTORICAL_BENEFICIARIES: Beneficiary[] = [
     createdAt: '2024-08-20T14:20:00Z',
     currentStatus: 'ai_mentoring',
     waitingForAssessor: false,
-    isDemoRecord: true,
   },
   {
     id: 'ben_hist_05',
@@ -318,7 +306,6 @@ export const HISTORICAL_BENEFICIARIES: Beneficiary[] = [
     currentStatus: 'submitted_to_assessor',
     assignedAssessorId: 'assessor_kulkarni_03',
     waitingForAssessor: false,
-    isDemoRecord: true,
   },
   {
     id: 'ben_hist_06',
@@ -335,6 +322,5 @@ export const HISTORICAL_BENEFICIARIES: Beneficiary[] = [
     currentStatus: 'clarification_requested',
     assignedAssessorId: 'assessor_sharma_02',
     waitingForAssessor: false,
-    isDemoRecord: true,
   },
 ];

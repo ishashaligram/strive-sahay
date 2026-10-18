@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   Sparkles,
   User,
@@ -10,13 +10,6 @@ import {
   Compass,
   FileCheck2,
   Layers,
-  MapPin,
-  Activity,
-  Server,
-  Info,
-  CheckCircle2,
-  AlertCircle,
-  X,
 } from 'lucide-react';
 import { SupportedLanguage, UserRole } from '../types';
 import { useTranslation } from '../services/i18n';
@@ -45,35 +38,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onResetData,
 }) => {
   const t = useTranslation(currentLang);
-  const [backendStatus, setBackendStatus] = useState<'checking' | 'connected' | 'offline'>('checking');
-  const [showStatusModal, setShowStatusModal] = useState(false);
-
-  // Check health of FastAPI & Qwen3-8B backend
-  useEffect(() => {
-    let isMounted = true;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2000);
-
-    fetch('http://localhost:8000/api/system/status', { signal: controller.signal })
-      .then((res) => {
-        if (res.ok) return res.json();
-        throw new Error('Not ok');
-      })
-      .then(() => {
-        if (isMounted) setBackendStatus('connected');
-      })
-      .catch(() => {
-        if (isMounted) setBackendStatus('offline');
-      })
-      .finally(() => {
-        clearTimeout(timer);
-      });
-
-    return () => {
-      isMounted = false;
-      controller.abort();
-    };
-  }, []);
 
   return (
     <header className="sticky top-0 z-40 bg-slate-900 border-b border-slate-800 text-white shadow-md">
@@ -135,17 +99,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <Sparkles className="w-4 h-4" />
                   <span>{t.improvementHub}</span>
                 </button>
-                <button
-                  onClick={() => onNavigate('roadmap')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-1.5 ${
-                    currentView === 'roadmap'
-                      ? 'bg-slate-800 text-teal-400 border border-slate-700'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  <MapPin className="w-4 h-4" />
-                  <span>Roadmap</span>
-                </button>
               </>
             )}
 
@@ -180,38 +133,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Right Action Controls */}
           <div className="flex items-center space-x-3">
-            {/* Backend / Model Architecture Indicator */}
-            <button
-              type="button"
-              onClick={() => setShowStatusModal(true)}
-              title="Click to view AI & Backend architecture status"
-              className={`hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all ${
-                backendStatus === 'connected'
-                  ? 'bg-emerald-950/60 text-emerald-300 border-emerald-700 hover:bg-emerald-900/60'
-                  : backendStatus === 'checking'
-                  ? 'bg-slate-800 text-slate-300 border-slate-700'
-                  : 'bg-amber-950/60 text-amber-300 border-amber-700 hover:bg-amber-900/60'
-              }`}
-            >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  backendStatus === 'connected'
-                    ? 'bg-emerald-400 animate-pulse'
-                    : backendStatus === 'checking'
-                    ? 'bg-slate-400'
-                    : 'bg-amber-400'
-                }`}
-              />
-              <span className="hidden xl:inline">
-                {backendStatus === 'connected'
-                  ? 'Qwen3-8B | FastAPI | Firestore'
-                  : 'Local Resilience Mode'}
-              </span>
-              <span className="xl:hidden">
-                {backendStatus === 'connected' ? 'Qwen3-8B Live' : 'Local Mode'}
-              </span>
-            </button>
-
             {/* Language Switcher (Beneficiary Only) */}
             {currentRole === 'beneficiary' && (
               <div className="flex items-center bg-slate-800 rounded-lg px-2 py-1 border border-slate-700">
@@ -251,15 +172,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
 
-            {/* Reset Data Button */}
-            <button
-              onClick={onResetData}
-              title="Reset sample data to clean state"
-              className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition-colors"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
-
             {/* Logout */}
             <button
               onClick={onLogout}
@@ -271,99 +183,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Backend & AI Architecture Diagnostics Modal */}
-      {showStatusModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 text-white space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center space-x-2.5">
-                <Server className="w-5 h-5 text-teal-400" />
-                <h3 className="font-bold text-base">STRIVE SAHAY System Architecture</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowStatusModal(false)}
-                className="text-slate-400 hover:text-white p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-slate-200">FastAPI Microservice Engine</h4>
-                  <p className="text-slate-400 text-[11px]">Endpoint: http://localhost:8000</p>
-                </div>
-                <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                    backendStatus === 'connected'
-                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                      : 'bg-amber-950 text-amber-300 border border-amber-800'
-                  }`}
-                >
-                  {backendStatus === 'connected' ? 'Connected' : 'Offline / Edge Fallback'}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-slate-200">Qwen3-8B (Ollama) Business Model</h4>
-                  <p className="text-slate-400 text-[11px]">Port: 11434 • Primary Reasoning & Rubric Evaluator</p>
-                </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-950 text-teal-300 border border-teal-800">
-                  Active Runtime
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-slate-200">faster-whisper & pdfplumber</h4>
-                  <p className="text-slate-400 text-[11px]">Voice audio pitch transcription & business document ingestion</p>
-                </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-950 text-teal-300 border border-teal-800">
-                  Ready
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-slate-200">IndicTrans2 Multilingual Translation</h4>
-                  <p className="text-slate-400 text-[11px]">Bidirectional 7-language translation for beneficiaries</p>
-                </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-950 text-teal-300 border border-teal-800">
-                  Ready
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-slate-200">Cloud Firestore & Hybrid Storage Cache</h4>
-                  <p className="text-slate-400 text-[11px]">Deterministic persistent storage with offline fallback</p>
-                </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
-                  Operational
-                </span>
-              </div>
-            </div>
-
-            <p className="text-[11px] text-slate-400 leading-relaxed border-t border-slate-800 pt-3">
-              ℹ️ STRIVE SAHAY guarantees institutional continuity: if Python FastAPI or Ollama are temporarily unreachable, all deterministic financial checks, contradiction detection, and roadmap milestones continue running locally in the browser with full data preservation.
-            </p>
-
-            <div className="flex justify-end pt-1">
-              <button
-                type="button"
-                onClick={() => setShowStatusModal(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </header>
   );
 };
