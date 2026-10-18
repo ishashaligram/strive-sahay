@@ -38,7 +38,7 @@ class StructuredRequest(BaseModel):
     title:str=Field(min_length=1,max_length=200)
     language:str="en"
     cohortId:str|None=None
-    region:str=""
+    region:str=Field(default='',max_length=200)
     trade:str=""
     fields:dict[str,StructuredFact]
 
@@ -165,6 +165,16 @@ def install_program(app, runtime):
     def schema(user=Depends(account)):
         return {"modules":MODULES,"critical":CRITICAL,"recommendations":RECOMMENDATIONS,"decisions":DECISIONS}
 
+    @app.get('/api/regions')
+    def regions(user=Depends(account)):
+        options={'Pune','Mumbai','Thane','Nashik','Ahmednagar','Solapur','Satara','Kolhapur','Sangli'}
+        for capacity in all_entities('capacity'):
+            options.update(value.strip() for value in capacity.get('regions',[]) if isinstance(value,str) and value.strip())
+        for region in all_entities('region'):
+            value=region.get('name') or region.get('id')
+            if isinstance(value,str) and value.strip():options.add(value.strip())
+        return sorted(options)
+
     @app.get("/api/profile")
     def profile(user=Depends(account)):
         existing=next((p for p in all_entities("profile") if p["id"]==user["id"]),None)
@@ -214,6 +224,8 @@ def install_program(app, runtime):
         record=get_record(sid,user,True)
         runtime["editable"](record)
         if set(req.fields)-set(FIELDS):raise HTTPException(422,"Unknown form field")
+        if 'region' in req.model_fields_set:record['region']=req.region.strip()
+        if not req.fields:return persist(record)
         record.setdefault("factHistory",[]).append({"at":now(),"actor":user["id"],"before":copy.deepcopy(record["facts"])})
         for key,value in req.fields.items():
             payload=value.model_dump()
