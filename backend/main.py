@@ -20,6 +20,7 @@ from services.indictrans_service import IndicTransService, LANGUAGES
 from services.screening import extract, score, Question, Report, pending_assessment_domains
 from services.pdf_service import PDFProcessingService
 from services.whisper_service import FasterWhisperService
+from services.phone_auth import presentation_request, demo_path, install_phone_auth
 
 load_dotenv(Path(__file__).parent / ".env")
 app = FastAPI(title="STRIVE SAHAY evidence-based screening", version="3.0")
@@ -32,7 +33,7 @@ def now():
 
 @contextmanager
 def connection():
-    path = Path(os.getenv("DATABASE_PATH", str(Path(__file__).parent / "screening.sqlite3")))
+    path = Path(demo_path() if presentation_request.get() else os.getenv("DATABASE_PATH", str(Path(__file__).parent / "screening.sqlite3")))
     conn = sqlite3.connect(path, timeout=30)
     conn.execute("CREATE TABLE IF NOT EXISTS submissions (id TEXT PRIMARY KEY, owner TEXT NOT NULL, assessor TEXT, status TEXT NOT NULL, revision INTEGER NOT NULL, body TEXT NOT NULL)")
     try:
@@ -42,6 +43,10 @@ def connection():
         conn.close()
 
 def account(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if credentials.credentials.startswith("presentation_"):
+        user=phone_auth(credentials.credentials)
+        if user:return user
+        raise HTTPException(401,"Session expired. Please sign in with your phone number again.")
     accounts = json.loads(os.getenv("SCREENING_ACCOUNTS", "{}"))
     for token, user in accounts.items():
         if secrets.compare_digest(credentials.credentials, token):
@@ -53,7 +58,7 @@ def account(credentials: HTTPAuthorizationCredentials = Depends(security)):
         user = managed(credentials.credentials)
         if user:
             return user
-    raise HTTPException(401, "Invalid access token. Configure an account with the service operator.")
+    raise HTTPException(401, "Your session is invalid. Please sign in again.")
 
 def get_record(sid, user, write=False):
     with connection() as db:
@@ -458,3 +463,5 @@ async def review(sid: str, req: ReviewRequest, user=Depends(account)):
 
 from services.program import install_program
 install_program(app, globals())
+
+install_phone_auth(app, globals())

@@ -14,7 +14,6 @@ export function ScreeningWorkspace({role,language,onLanguageChange}: {role:'bene
   const t=ui(role==='assessor'?'en':language);
   const translationAttempt=useRef('');
   const questionAttempt=useRef('');
-  const [token,setToken] = useState(sessionStorage.getItem('screening_access_token')||'');
   const [account,setAccount] = useState<{id:string;role:string}|null>(null);
   const [records,setRecords] = useState<ScreeningRecord[]>([]);
   const [selected,setSelected] = useState('');
@@ -68,16 +67,12 @@ export function ScreeningWorkspace({role,language,onLanguageChange}: {role:'bene
       <h1 className="text-2xl font-extrabold mt-2">{role==='assessor'?'Assessor Portal':t('workspace')}</h1>
       <p className="text-slate-300 mt-2 text-sm">{role==='beneficiary'?t('simpleWorkspaceHelp'):['Original pitch','Review facts','Clarify','Assessment','Human review'].map(step=>t(step)).join(' → ')}</p>
     </header>
-    {!account ? <form className="bg-white border rounded-2xl p-6 space-y-3" onSubmit={e=>{e.preventDefault();sessionStorage.setItem('screening_access_token',token);void run(t("Connecting account…"),load);}}>
-      <label className="block font-semibold">{t("Screening account access token")}<input type="password" autoComplete="off" required className="block border p-3 rounded-xl mt-2 w-full max-w-xl" value={token} onChange={e=>setToken(e.target.value)}/></label>
-      <p className="text-sm text-slate-500">{t('accountHelp')}</p>
-      <button disabled={!!busy} className="bg-teal-600 text-white rounded-xl p-3">{t("Connect screening account")}</button>
-    </form> : <div className="flex flex-wrap gap-3 items-center">
+    {!account ? <section className="bg-white border rounded-2xl p-6 space-y-3"><p>{t('phoneLoginHelp')}</p><a className="inline-block bg-teal-600 text-white rounded-xl p-3" href={role==='beneficiary'?'/beneficiary/auth':'/assessor/login'}>{t('Sign in')}</a></section> : <div className="flex flex-wrap gap-3 items-center">
       {role==='assessor'&&<span className="text-sm text-slate-500">Screening account: {account.id}</span>}
       <select disabled={!!busy} aria-label="Saved submission" className="border rounded-xl p-3 bg-white" value={selected} onChange={e=>setSelected(e.target.value)}><option value="">{t("Select saved submission")}</option>{records.map(r=><option key={r.id} value={r.id}>{r.title} · {workflowLabel(r.state,role==='assessor'?'en':language)}</option>)}</select>
       <button disabled={!!busy} className="border rounded-xl p-3" onClick={()=>void run(t("Refreshing saved records…"),load)}>{t("Refresh progress")}</button>
       {role==='beneficiary' && <><button disabled={!!busy} className="bg-teal-600 text-white rounded-xl p-3" onClick={()=>setModal(true)}>{t("Upload / type business pitch")}</button><button disabled={!!busy} className="border border-teal-600 text-teal-700 rounded-xl p-3" onClick={()=>{setEditStructured(false);setStructured(true);}}>{t('structured')}</button></>}
-      <button className="text-sm underline" disabled={!!busy} onClick={()=>{sessionStorage.removeItem('screening_access_token');setAccount(null);setRecords([]);setSelected('');setToken('');}}>{t("Disconnect")}</button>
+      <button className="text-sm underline" disabled={!!busy} onClick={()=>{void api('/auth/logout',{}).catch(()=>{});sessionStorage.removeItem('screening_access_token');setAccount(null);setRecords([]);setSelected('');}}>{t("Disconnect")}</button>
     </div>}
     {role==='assessor'&&account&&<section className="bg-white border p-4 rounded-2xl space-y-3"><div className="flex flex-wrap gap-2">{['Assigned Cases','Assessment Ready','Clarification Required','Awaiting Beneficiary Response','Reviews Completed'].map(tab=><button key={tab} className={'border p-2 rounded '+(tab===queue?'bg-teal-600 text-white':'')} onClick={()=>setQueue(tab)}>{tab} ({records.filter(r=>tab==='Assigned Cases'||(tab==='Assessment Ready'&&r.state==='SUBMITTED')||(tab==='Clarification Required'&&r.state==='CLARIFICATION_REQUIRED')||(tab==='Awaiting Beneficiary Response'&&r.state==='AWAITING_BENEFICIARY')||(tab==='Reviews Completed'&&!!r.recommendation)).length})</button>)}</div><div className="flex gap-2 flex-wrap"><label>Preferred active cases <input type="number" min={0} className="border p-2 rounded w-20" value={preferredCapacity} onChange={e=>setPreferredCapacity(Number(e.target.value))}/></label><label><input type="checkbox" checked={available} onChange={e=>setAvailable(e.target.checked)}/> Available</label><button onClick={()=>void run('Saving capacity…',async()=>{await api('/assessor/capacity',{id:account.id,data:{preferred:preferredCapacity,available}});})}>Save preference</button></div><div className="flex flex-wrap gap-2">{records.filter(r=>queue==='Assigned Cases'||(queue==='Assessment Ready'&&r.state==='SUBMITTED')||(queue==='Clarification Required'&&r.state==='CLARIFICATION_REQUIRED')||(queue==='Awaiting Beneficiary Response'&&r.state==='AWAITING_BENEFICIARY')||(queue==='Reviews Completed'&&!!r.recommendation)).map(r=><button key={r.id} className="text-teal-700 border p-2 rounded" onClick={()=>setSelected(r.id)}>{r.title} · {r.owner}</button>)}</div></section>}
     {busy && <p role="status" className="bg-teal-50 border border-teal-200 p-4 rounded-xl">{busy}</p>}

@@ -1,3 +1,4 @@
+import {installPhoneTranslations} from './phoneI18n';
 import i18next from 'i18next';
 import {initReactI18next} from 'react-i18next';
 import {translations} from './i18n';
@@ -62,3 +63,5 @@ for(const [language,copy] of Object.entries(simpleCopy))i18next.addResourceBundl
 
 const assessmentCopy:Record<string,string>={en:'Your score will appear after the clarification answers and required business details are complete and confirmed. The pitch alone does not determine readiness.',hi:'स्पष्टीकरण के उत्तर और जरूरी जानकारी पूरी और पुष्ट होने के बाद स्कोर दिखेगा। केवल विचार से तैयारी तय नहीं होती।',mr:'स्पष्टीकरणाची उत्तरे आणि आवश्यक माहिती पूर्ण व पुष्ट झाल्यावर गुण दिसतील. केवळ कल्पनेवर तयारी ठरत नाही.',te:'స్పష్టీకరణ సమాధానాలు మరియు అవసరమైన వివరాలను పూర్తి చేసి నిర్ధారించిన తర్వాత స్కోరు కనిపిస్తుంది.',ta:'விளக்க பதில்களையும் தேவையான விவரங்களையும் பூர்த்தி செய்து உறுதிப்படுத்திய பிறகு மதிப்பெண் காட்டப்படும்.',kn:'ಸ್ಪಷ್ಟೀಕರಣ ಉತ್ತರಗಳು ಮತ್ತು ಅಗತ್ಯ ವಿವರಗಳನ್ನು ಪೂರ್ಣಗೊಳಿಸಿ ದೃಢೀಕರಿಸಿದ ನಂತರ ಅಂಕ ಕಾಣಿಸುತ್ತದೆ.',bn:'ব্যাখ্যার উত্তর ও প্রয়োজনীয় তথ্য সম্পূর্ণ করে নিশ্চিত করার পরে স্কোর দেখানো হবে।'};
 for(const [language,copy] of Object.entries(assessmentCopy))i18next.addResource(language,'translation','assessmentAfterAnswers',copy);
+
+installPhoneTranslations();

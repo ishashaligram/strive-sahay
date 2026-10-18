@@ -318,6 +318,7 @@ def install_program(app, runtime):
             settings=all_entities("capacity",db)
             accounts=[a for a in all_entities("account",db) if a["role"]=="assessor" and a.get("active",True)]
             environment=json.loads(runtime["os"].getenv("SCREENING_ACCOUNTS","{}"))
+            if runtime["presentation_request"].get():environment={}
             accounts += [a for a in environment.values() if a["role"]=="assessor" and not any(b["id"]==a["id"] for b in accounts)]
             candidates=[]
             for assessor in accounts:

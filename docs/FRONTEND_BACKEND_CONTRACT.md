@@ -149,3 +149,16 @@ The frontend requests `/clarification/{id}/round` once after a newly extracted i
 Qwen receives the original pitch, confirmed facts, and clarification answers. Supporting fields must belong to the rated category. Each category rating is capped by the proportion of its rubric fields actually cited as confirmed evidence; missing evidence cannot earn a full rating. The weighted total remains server calculated. Live model/translation verification still requires reachable configured services.
 
 Malformed nested response data is rejected with a visible error before rendering. Unexpected rendering errors show reload/home recovery controls. These controls do not delete submissions.
+
+
+## Presentation phone login
+
+The login pages now show Phone number, Sign in, and Register for beneficiary, assessor, and program manager (`admin`). Registration collects the name and verifies a server-generated six-digit OTP displayed directly on screen. It does not send SMS or establish real phone ownership. The OTP expires after five minutes, is single-use, has a five-attempt limit, and can be resent after 30 seconds.
+
+- `POST /auth/request-otp`: `{phone,role,mode: "login"|"register",name,language}` returns `{challenge_id,demo_otp,expires_in,resend_after,presentation:true}`.
+- `POST /auth/verify-otp`: `{challenge_id,otp}` returns `{session_token,user:{id,name,role},presentation:true}`. The app stores the session internally; users never enter an access token.
+- `POST /auth/logout`: invalidates the current presentation session.
+
+Presentation sessions last 12 hours and use a separate `presentation.sqlite3` database for all accounts, cases, profiles, cohorts, and allocation. They cannot read existing screening records. `DEMO_DATABASE_PATH` must differ from `DATABASE_PATH`. `PRESENTATION_PHONE_LOGIN=false` disables new presentation logins. Do not treat this flow as production authentication.
+
+In presentation mode all three roles can register. Assessor allocation uses only assessors registered in the same presentation database. It balances workload within capacity, region, trade, and availability; the program manager can reassign with a reason. Program managers oversee the queue; there is no separate automatic per-manager beneficiary allocation.
