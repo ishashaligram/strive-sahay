@@ -5,7 +5,7 @@ import httpx
 
 class PDFProcessingService:
     @staticmethod
-    def extract_text_from_pdf(file_bytes, filename="proposal.pdf"):
+    def extract_text_from_pdf(file_bytes, filename="proposal.pdf", language="auto", allow_local=True):
         import pdfplumber
         pages=[]
         needs_ocr=False
@@ -39,9 +39,13 @@ class PDFProcessingService:
         if not pages or needs_ocr:
             endpoint=os.getenv("OCR_ENDPOINT")
             if not endpoint:
-                raise ValueError("Scanned, damaged-font, or overwritten document requires OCR_ENDPOINT. Upload a searchable replacement or paste reviewed text.")
+                from services.local_ocr import extract_pdf,ready
+                if not allow_local or not ready():raise ValueError('Scanned or damaged document requires local OCR setup or OCR_ENDPOINT. Run scripts/setup_ocr.py.')
+                data=extract_pdf(file_bytes,language)
+                for page in data['pages']:page['warnings']=sorted(set(page.get('warnings',[]))|{w for original in pages for w in original.get('warnings',[])})
+                return {'full_text':data['text'],'pages':data['pages'],'is_scanned':True}
             headers={"Authorization":"Bearer "+os.environ["OCR_API_KEY"]} if os.getenv("OCR_API_KEY") else {}
-            response=httpx.post(endpoint,headers=headers,files={"file":(filename,file_bytes,"application/pdf")},timeout=float(os.getenv("AI_TIMEOUT","180")))
+            response=httpx.post(endpoint,headers=headers,files={"file":(filename,file_bytes,"application/pdf")},data={"language":language},timeout=float(os.getenv("AI_TIMEOUT","180")))
             response.raise_for_status()
             data=response.json()
             text=data["text"]
@@ -51,8 +55,8 @@ class PDFProcessingService:
             if not isinstance(ocr_pages,list) or any(not isinstance(page,dict) for page in ocr_pages):raise ValueError('OCR returned invalid page metadata')
             document_warnings=sorted({warning for original in pages for warning in original.get('warnings',[])})
             for page in ocr_pages:
-                page['warnings']=document_warnings
+                page['warnings']=sorted(set(page.get('warnings',[]))|set(document_warnings))
                 original=next((old for old in pages if old['page_number']==page.get('page_number')),None)
-                if original:page['warnings']=original.get('warnings',[])
+                if original:page['warnings']=sorted(set(page['warnings'])|set(original.get('warnings',[])))
             return {"full_text":text,"pages":ocr_pages,"is_scanned":True,"warnings":sorted({warning for page in pages for warning in page.get("warnings",[])})}
         return {"full_text":"\n\n".join("[Page "+str(p["page_number"])+"]\n"+p["text"] for p in pages),"pages":pages,"is_scanned":False}

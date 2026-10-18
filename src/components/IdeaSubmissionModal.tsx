@@ -26,7 +26,7 @@ export const IdeaSubmissionModal = ({isOpen, onClose, currentLang, onSubmit}: {i
   const upload = (file: File) => run(t("Reading document…"), async () => {
     if(file.size>15*1024*1024)throw new Error('File exceeds 15 MB limit');
     if(!/\.(pdf|docx|txt|md)$/i.test(file.name))throw new Error('Unsupported document format');
-    const form = new FormData(); form.append('file',file);
+    const form = new FormData(); form.append('file',file);form.append('language',language);
     const result = await api<{text: string;uploadId:string;warnings?:string[]}>('/pipeline/process-document',form);
     setKind('document'); setText(result.text);setMediaIds([result.uploadId]);setDocumentWarnings(result.warnings||[]);
   });

@@ -17,6 +17,10 @@ class FasterWhisperService:
             result=response.json()
             if not isinstance(result.get('original_transcript'),str) or not result['original_transcript'].strip():raise ValueError('Speech service returned no transcript')
             return {**result,'reviewRequired':True}
+        return cls.transcribe_local(audio_bytes,language,filename)
+
+    @classmethod
+    def transcribe_local(cls,audio_bytes,language=None,filename='recording.webm'):
         if language=='or':raise RuntimeError('Odia audio requires an ASR_ENDPOINT configured for Odia. No transcript has been invented.')
         try:
             from faster_whisper import WhisperModel

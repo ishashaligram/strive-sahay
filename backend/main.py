@@ -417,12 +417,12 @@ async def upload_bytes(file):
     return data
 
 @app.post("/api/pipeline/process-document")
-async def document(file: UploadFile = File(...), user=Depends(account)):
+async def document(file: UploadFile = File(...), language:str=Form("auto"), user=Depends(account)):
     data = await upload_bytes(file)
     name = (file.filename or "").lower()
     pages=[]
     if name.endswith(".pdf"):
-        result = await asyncio.to_thread(PDFProcessingService.extract_text_from_pdf, data, name)
+        result = await asyncio.to_thread(PDFProcessingService.extract_text_from_pdf, data, name,language)
         text = result["full_text"]
         pages=result.get("pages",[])
     elif name.endswith(".docx"):

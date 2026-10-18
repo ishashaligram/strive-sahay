@@ -42,7 +42,7 @@ def inspect(archive,kind):
                 texts=[page.extract_text() or '' for page in pdf.pages]
                 item={'file':entry.filename,'pages':len(texts),'scannedPages':sum(not text.strip() for text in texts),'damagedFontPages':sum(damaged_text(text) for text in texts),'overwrittenPages':sum(overwritten_text(page.dedupe_chars()) for page in pdf.pages)}
             try:
-                result=PDFProcessingService.extract_text_from_pdf(data,entry.filename)
+                result=PDFProcessingService.extract_text_from_pdf(data,entry.filename,allow_local=False)
                 item.update(status='READABLE',questionBlocks=result['full_text'].count('[Question]'),emptyAnswers=result['full_text'].count('[Answer state: EMPTY]'))
             except ValueError as error:item.update(status='OCR_REQUIRED' if 'OCR' in str(error) else 'REVIEW_REQUIRED')
             items.append(item)

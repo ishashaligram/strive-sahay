@@ -19,3 +19,6 @@ demo-access.txt
 .pnpm-store/
 .publish-repo/
 output/
+
+.runtime-ocr/
+.runtime-models/

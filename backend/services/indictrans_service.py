@@ -23,6 +23,7 @@ class IndicTransService:
         headers = {"Authorization": "Bearer " + os.environ["INDICTRANS_API_KEY"]} if os.getenv("INDICTRANS_API_KEY") else {}
         async with httpx.AsyncClient(timeout=float(os.getenv("AI_TIMEOUT", "180"))) as client:
             r = await client.post(endpoint, headers=headers, json={"text": text, "source_language": LANGUAGES[source], "target_language": LANGUAGES[target], "model": os.getenv("INDICTRANS_EN_INDIC_MODEL", "ai4bharat/indictrans2-en-indic-1B") if source == "en" else os.getenv("INDICTRANS_INDIC_EN_MODEL", "ai4bharat/indictrans2-indic-en-1B")})
+            if r.status_code==503:raise RuntimeError('IndicTrans2 API is running but its model is not ready. Install the model runtime and configure approved HF_TOKEN or local model directories.')
             r.raise_for_status()
             translated = r.json()["translated_text"]
         if not isinstance(translated, str) or not translated.strip():
