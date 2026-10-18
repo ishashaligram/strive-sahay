@@ -14,6 +14,9 @@ def fetch(job):
     subprocess.run(['curl.exe','-sS','-L','--fail','--retry','2','-o',str(partial),url],check=True)
     partial.replace(target)
 def main():
+    if '--tts' in sys.argv:
+        for lang,code in {'en':'eng','hi':'hin','mr':'mar','te':'tel','ta':'tam','kn':'kan','bn':'ben','or':'ory'}.items():
+            MODELS['tts-'+lang]=('facebook/mms-tts-'+code,['model.safetensors','config.json','tokenizer_config.json','vocab.json','special_tokens_map.json'])
     if '--odia' in sys.argv:
         MODELS['mms-odia']=('facebook/mms-1b-all',['model.safetensors','adapter.ory.safetensors','config.json','preprocessor_config.json','tokenizer_config.json','vocab.json','special_tokens_map.json'])
     jobs=[]

@@ -147,6 +147,8 @@ def install_program(app, runtime):
     def missing(record):
         return [key for key in CRITICAL if not record["facts"].get(key,{}).get("confirmed") or not record["facts"].get(key,{}).get("validation",{}).get("valid")]
     def invalidate(record):
+        record.pop('guidance',None)
+        record.pop('guidanceTranslations',None)
         for key in ["finalScore","report","reportTranslations","confirmedAt","businessPlan","businessPlanTranslations","assessorReview","recommendation","adminDecision"]:
             record.pop(key,None)
         if record.get("currentScore"):
@@ -249,6 +251,10 @@ def install_program(app, runtime):
             if fact["status"]!="PROVIDED" or not fact["validation"]["valid"]:raise HTTPException(422,"Only validated provided fields can be confirmed")
             fact["confirmed"]=True
             fact["confirmedAt"]=now()
+        for question in record['questions']:
+            field=question['field']
+            if question['status']=='unknown' and field in req.fields and record['facts'][field].get('method')=='BENEFICIARY_FORM':
+                question.update(status='answered',answer=record['facts'][field]['value'],resolvedByConfirmedForm=True,evidenceSourceId=record['facts'][field]['claims'][0]['source_id'])
         for key in req.rejected:
             record["facts"][key].update({"confirmed":False,"status":"UNCLEAR","value":None})
         record.setdefault("factHistory",[]).append({"at":now(),"actor":user["id"],"before":before,"confirmed":req.fields,"rejected":req.rejected})
@@ -268,7 +274,7 @@ def install_program(app, runtime):
         for key,fact in record["facts"].items():
             if not fact.get("value"):continue
             source=next((s for s in record["sources"] if any(c["source_id"]==s["id"] for c in fact.get("claims",[]))),None)
-            source_lang=source.get("language","en") if fact.get("method")=="BENEFICIARY_FORM" and source else "en"
+            source_lang=fact.get("processingLanguage") or (source.get("language","en") if fact.get("method")=="BENEFICIARY_FORM" and source else "en")
             fact.setdefault("displayValues",{})[language]=await runtime["IndicTransService"].translate(fact["value"],source_lang,language) if key not in ("overview.businessName","overview.proposedLocation") else fact["value"]
         return persist(record)
 
@@ -279,6 +285,8 @@ def install_program(app, runtime):
     @app.post("/api/submissions/{sid}/ai-score")
     async def ai_score(sid:str,user=Depends(account)):
         record=get_record(sid,user,True)
+        from services.beneficiary_experience import normalize_form_facts
+        await normalize_form_facts(record)
         runtime["editable"](record)
         runtime["require_resolved_answers"](record)
         if missing(record):raise HTTPException(409,"Complete and confirm the required business facts before assessment")
@@ -490,6 +498,8 @@ def install_program(app, runtime):
     async def question_round(sid:str,user=Depends(account)):
         from services.screening import Question
         record=get_record(sid,user,True)
+        from services.beneficiary_experience import normalize_form_facts
+        await normalize_form_facts(record)
         runtime["editable"](record)
         if runtime["unresolved_answers"](record):return record
         attempted={q["field"] for q in record["questions"]}

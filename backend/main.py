@@ -540,3 +540,5 @@ from services.program import install_program
 install_program(app, globals())
 
 install_phone_auth(app, globals())
+from services.beneficiary_experience import install_beneficiary_experience
+install_beneficiary_experience(app,globals())

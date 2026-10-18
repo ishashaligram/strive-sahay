@@ -15,6 +15,15 @@ class Translation(BaseModel):
     source_language:str
     target_language:str
     model:str|None=None
+class ReadText(BaseModel):
+    text:str=Field(min_length=1,max_length=1200)
+    language:str
+@app.post('/tts')
+async def read_text(req:ReadText):
+    if req.language not in LANGUAGES:raise HTTPException(422,'Unsupported speech language')
+    from services.local_tts import synthesize
+    try:return await asyncio.to_thread(synthesize,req.text,req.language)
+    except (RuntimeError,ValueError) as exc:raise HTTPException(503,str(exc)) from exc
 @app.get('/health')
 async def health():
     import httpx
