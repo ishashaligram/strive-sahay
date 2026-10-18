@@ -1,154 +1,128 @@
-> **Provided dataset support:** [dataset behavior and service requirements](docs/DATASET_BEHAVIOR.md). Run `scripts/audit_dataset.py` with the three ZIP paths for an offline audit; it never imports sample answers into live records. The language path now includes Odia, and the form schema includes raw materials and proposed funding sources.
+# Tata STRIVE — STRIVE SAHAY
 
-> **Current presentation login:** choose a role, Register with name and phone number, then enter the six-digit OTP displayed on screen. No SMS is sent. Existing users choose Sign in. All three presentation roles use a separate `backend/presentation.sqlite3` database; the original screening database remains separate. See [phone login contract](docs/FRONTEND_BACKEND_CONTRACT.md#presentation-phone-login). Assessor assignment is automatic within capacity with program-manager reassignment.
+A multilingual business-idea screening and mentoring portal for Tata STRIVE programme beneficiaries, assessors and administrators. Beneficiaries develop an idea through guided questions; assessors review the supporting evidence; administrators monitor progress and record programme decisions.
 
-**Latest frontend-only pass:** [FRONTEND_HANDOFF.md](FRONTEND_HANDOFF.md) and [API mapping contract](docs/FRONTEND_BACKEND_CONTRACT.md). Backend integration is deferred.
+## Separate URLs for every role
 
-**Latest implementation:** See [DEMO_STATUS.md](DEMO_STATUS.md) for current behavior, tests, startup, database status, and limitations. This supersedes earlier workflow notes below.
+**Each role has its own login URL and dashboard.** The public homepage is a beneficiary entrance. Assessor and admin login cards are intentionally not displayed on it.
 
-# STRIVE SAHAY
+The current local demo runs at **http://127.0.0.1:3001**.
 
-The existing React/Tailwind application now uses a FastAPI screening workflow instead of browser-generated facts, fixed scores, sample transcripts, or simulated translations. The landing page, portal navigation, dark headers, teal controls, and split-screen fact sheet remain.
+| Role / page | Login or entry URL | Dashboard URL |
+| --- | --- | --- |
+| Public homepage | [http://127.0.0.1:3001/](http://127.0.0.1:3001/) | — |
+| Beneficiary | [http://127.0.0.1:3001/beneficiary/auth](http://127.0.0.1:3001/beneficiary/auth) | [http://127.0.0.1:3001/beneficiary/dashboard](http://127.0.0.1:3001/beneficiary/dashboard) |
+| Assessor | [http://127.0.0.1:3001/assessor/login](http://127.0.0.1:3001/assessor/login) | [http://127.0.0.1:3001/assessor/dashboard](http://127.0.0.1:3001/assessor/dashboard) |
+| Admin / programme manager | [http://127.0.0.1:3001/admin/login](http://127.0.0.1:3001/admin/login) | [http://127.0.0.1:3001/admin/dashboard](http://127.0.0.1:3001/admin/dashboard) |
+| Beneficiary language selection | [http://127.0.0.1:3001/beneficiary/language](http://127.0.0.1:3001/beneficiary/language) | — |
 
-**Live AI inference is not verified in this environment.** Qwen, IndicTrans2, account provisioning, optional Whisper weights, and optional OCR must be configured. Missing services return errors; they never return sample business facts.
+For deployment, replace `http://127.0.0.1:3001` with your deployed origin and retain these paths. These are separate routes within one application, not separate servers. Dashboard access and API permissions are checked by role; a different URL alone does not grant access.
 
-## Start locally (PowerShell)
+**Presentation authentication:** each role's login screen offers Sign in and Register using a phone number. The six-digit demonstration OTP appears on screen; no SMS is sent. This demo registration flow is not production staff provisioning. Use separate browser profiles or private windows for simultaneous roles, or sign out before switching roles in the same browser session.
 
-Use Node.js 22+ and Python 3.11/3.12. From the project directory:
+## Beneficiary journey
+
+1. Choose a language and sign in or register. Existing cohort members enter their dashboard; beneficiaries without a cohort select an active programme cohort. A coordinator must create an active cohort if none exists.
+2. Type a business pitch in the chosen language. The title is optional. Audio and document options remain available under Other input options, but typed input is the recommended demo path.
+3. Review the extracted business facts, correct translations or values, answer the major questions, and explicitly confirm the information. Missing details stay blank.
+4. Answer contextual questions across the assessment domains. Unknown or unsupported answers do not satisfy the scoring requirements.
+5. Receive a final assessment, SWOT guidance, local-market research tasks and an AI business-plan draft. A pitch-only completeness measure is not a final readiness score.
+6. For a score below the beneficiary handoff threshold, improve the identified fields, start a reassessment or request mentoring. A qualifying completed case can proceed to assessor review.
+
+The simplified dashboard includes one-question-at-a-time answers, regional-language selection and read-aloud controls. Government scheme and NGO links help users explore support; provider eligibility and availability must be checked separately.
+
+## Assessor workflow
+
+- Sign in at **`/assessor/login`** and open assigned cases.
+- Open **Original pitch** to see the regional source and English translation side by side.
+- Review confirmed facts, clarification answers, assessment evidence and the original pitch.
+- Send follow-up questions and record a recommendation with a reason.
+- Record trainer or mentor progress, completion percentages and supporting feedback for the administrator.
+
+Automatic allocation respects configured availability and capacity. Retrying an automatic assignment preserves the completed assignment and avoids duplicate assignment-history entries. Administrators can explicitly transfer a case to another eligible assessor with a reason.
+
+## Administrator workflow
+
+- Sign in at **`/admin/login`**.
+- View beneficiaries, cases, cohorts, assessment scores, assessor recommendations and programme decisions.
+- Review training and mentoring completion, named reviewer feedback and progress history.
+- Set programme investment-review limits: minimum final assessment score, training completion and mentoring completion. Initial defaults are **7/10, 70% and 70%** respectively.
+- Mark a qualifying case **Eligible for funding review**, or return it for improvement with a reason.
+- Manage cohorts, assessor capacity, assignments and cohort transfers; export filtered case data and inspect audit records.
+
+Meeting the limits enables admin review; it does not automatically approve eligibility. Funding-review eligibility also requires a current final assessment and an investment-readiness recommendation from the assigned assessor. Case or limit changes require a fresh eligibility review. Synthetic demo scores cannot qualify.
+
+**Funding-review eligibility is an internal programme decision, not approval or disbursement of a loan, grant or investment.** The admin-configurable investment limits are separate from the beneficiary's existing assessment handoff threshold.
+
+## Multilingual translation
+
+Supported languages: **English, Hindi, Marathi, Telugu, Tamil, Kannada, Bengali and Odia**.
+
+The current local translation provider is **NLLB-200**. IndicTrans2 integration is prepared but is not active; its official checkpoints require Hugging Face account access.
+
+    Regional typed pitch → preserved original + English translation
+                         → evidence extraction and assessment
+                         → guidance and feedback in the selected beneficiary language
+
+English input bypasses unnecessary translation. Original text and English processing text are retained separately. Assessor feedback, mentoring tasks, follow-up questions and generated guidance are localized for the beneficiary's selected language. Translation and extraction need human review; successful pipeline checks do not guarantee perfect wording or semantic accuracy.
+
+## Technology and local services
+
+| Component | Implementation / local address |
+| --- | --- |
+| Frontend | React, TypeScript, Vite, Tailwind CSS; port `3001` for this demo |
+| Application API | FastAPI; `http://127.0.0.1:8000` |
+| Translation, OCR and speech gateway | FastAPI; `http://127.0.0.1:8001` |
+| Local business AI | Qwen2.5-1.5B-Instruct through llama.cpp; `http://127.0.0.1:8080/v1` |
+| Persistence | SQLite; presentation records are separate from the original screening database |
+| Translation | Local NLLB-200; optional IndicTrans2 activation |
+| Speech and document inputs | Optional local models and OCR dependencies; review their output |
+
+## Local setup
+
+Prerequisites: Node.js **22.12+** with pnpm, Python **3.11 or 3.12**, and the selected local model runtimes and weights. Model files, dependencies, private environment files and databases are not included in Git. A fresh clone requires model setup before AI operations work.
+
+From the project folder, in PowerShell:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-Copy-Item backend/.env.example backend/.env
 pnpm install
+# Run only if backend/.env does not already exist:
+Copy-Item backend/.env.example backend/.env
 ```
 
-Provision private account tokens; the utility prints each token once. Keep them private. Accounts live in the ignored backend/.env file. The backend trusts these server-owned identities, never browser role/id values.
+Configure `backend/.env` for your installed model services. For the current local demo:
+
+```dotenv
+QWEN_PROVIDER=openai
+QWEN_ENDPOINT=http://127.0.0.1:8080/v1
+QWEN_MODEL=local-business-1.5b
+TRANSLATION_PROVIDER=nllb
+INDICTRANS_ENDPOINT=http://127.0.0.1:8001/translate
+```
+
+`INDICTRANS_ENDPOINT` is the adapter's configuration name; the gateway uses `TRANSLATION_PROVIDER` to select NLLB or IndicTrans2. Install/download the NLLB model first; setting these variables alone does not install models.
+
+Start the configured local Qwen runtime and the two APIs:
 
 ```powershell
-python backend/provision_account.py --id assessor_1 --role assessor
-python backend/provision_account.py --id beneficiary_1 --role beneficiary --assessor-id assessor_1
+.\scripts\start_local_llm.ps1
+.\scripts\start_backend_services.ps1 -PythonExecutable (Resolve-Path .venv/Scripts/python.exe).Path
 ```
 
-Configure models below, then run the backend and frontend in separate terminals:
+The Qwen helper expects the llama.cpp executable and GGUF checkpoint at the paths documented in [Backend services](docs/BACKEND_SERVICES.md). The current desktop installation uses an additional project-local Python runtime; the virtual-environment commands above are for a new setup.
+
+Start the frontend in another terminal:
 
 ```powershell
-python -m uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload
-pnpm dev
+pnpm exec vite --host 127.0.0.1 --port 3001 --strictPort
 ```
 
-Open the URL Vite prints (normally http://localhost:3000). If occupied, Vite chooses another port. All /api requests proxy to port 8000. Set BACKEND_URL in the frontend process to override the proxy target. Vite HMR remains enabled unless DISABLE_HMR=true. In deployment, configure the same-origin /api reverse proxy separately.
+Open [the homepage](http://127.0.0.1:3001/). Vite proxies `/api` requests to port `8000`; `BACKEND_URL` can override that target. For deployment, configure an equivalent reverse proxy and SPA route fallback so direct staff login URLs work.
 
-### This desktop verification environment
-
-The default python and npm commands were unavailable or broken. Verification used the Codex bundled Python and Node runtimes, project-local .runtime-python dependencies, and pnpm. These paths are machine-specific; the ordinary virtual-environment instructions above are portable.
-
-The API was started at http://127.0.0.1:8000 and the verification frontend at http://127.0.0.1:3001 because port 3000 was already occupied. /api/health and the Vite proxy both returned HTTP 200. No account or model secrets were created or guessed.
-
-## Model configuration
-
-All secrets belong in backend/.env, never frontend source or VITE_* variables.
-
-| Variable | Purpose |
-| --- | --- |
-| QWEN_PROVIDER | ollama (default) or openai for an OpenAI-compatible Qwen server |
-| QWEN_ENDPOINT | Ollama root, default http://127.0.0.1:11434; for compatible inference use a base ending in /v1 |
-| QWEN_MODEL | Default qwen3:8b; use the actual Qwen3-8B identifier exposed by the selected server |
-| QWEN_API_KEY | Optional server-side inference credential |
-| AI_TIMEOUT | Per-service request timeout in seconds, default 180 |
-| INDICTRANS_ENDPOINT | Required IndicTrans2 translation gateway URL |
-| INDICTRANS_API_KEY | Optional translation gateway credential |
-| INDICTRANS_INDIC_EN_MODEL | Default ai4bharat/indictrans2-indic-en-1B |
-| INDICTRANS_EN_INDIC_MODEL | Default ai4bharat/indictrans2-en-indic-1B |
-| SCREENING_ACCOUNTS | JSON token-to-account mapping, generated by the provisioning utility |
-| DATABASE_PATH | Persistent SQLite path; defaults to backend/screening.sqlite3 |
-| MAX_QUESTIONS | Automatic clarification limit, default 8; recorded per submission |
-| SCREENING_RUBRIC | Optional JSON domain-to-[weight, field paths] mapping; weights sum to 1 |
-| CORS_ORIGINS | Explicit comma-separated frontend origins; localhost only by default |
-| OCR_ENDPOINT / OCR_API_KEY | Optional scanned-document OCR gateway |
-| WHISPER_MODEL_SIZE | Default base; weights must be available or downloadable |
-| WHISPER_DEVICE / WHISPER_COMPUTE_TYPE | Defaults cpu / int8 |
-
-For Ollama, install/run Ollama and pull the actual model:
-
-```powershell
-ollama pull qwen3:8b
-ollama serve
-```
-
-Structured output uses JSON Schema, temperature zero, and backend Pydantic validation. See [Ollama structured output documentation](https://github.com/ollama/ollama/blob/main/docs/capabilities/structured-outputs.mdx).
-
-### IndicTrans2 gateway contract
-
-Deploy IndicTrans2 independently using [AI4Bharat's inference instructions](https://github.com/AI4Bharat/IndicTrans2/tree/main/huggingface_interface), or supply an existing deployment behind a compatible gateway. The repository does not assume that gated weights, IndicTransToolkit, Torch, or a translation server are installed. Model access and suitable compute may be required.
-
-The configured URL accepts POST JSON:
-
-```json
-{
-  "text": "The original text",
-  "source_language": "hin_Deva",
-  "target_language": "eng_Latn",
-  "model": "ai4bharat/indictrans2-indic-en-1B"
-}
-```
-
-It must run the indicated translation direction and return:
-
-```json
-{"translated_text": "The actual translated text"}
-```
-
-Authorization is Bearer INDICTRANS_API_KEY when configured. The adapter currently maps English, Hindi, Marathi, Telugu, Tamil, Kannada and Bengali to IndicTrans2 codes. English bypasses translation. Other directions should be extended only when the deployed model supports them. Code mixing and uncertain detection are surfaced for review; numeric changes cause rejection, not silent acceptance.
-
-All generated questions, rationale, guidance, and final report prose are translated for the selected interaction language. Facts remain exact evidence excerpts in the English fact sheet alongside the untouched original sources. Field identifiers, rubric labels, workflow status codes, and unknown-field identifiers remain stable English technical labels.
-
-### Voice and documents
-
-Install optional local speech recognition with python -m pip install faster-whisper. Model weights download on first use unless already cached. Microphone access is requested only when recording. Whisper transcribes speech; IndicTrans2 only translates text. The beneficiary reviews and edits the transcript before extraction.
-
-Searchable PDFs use pdfplumber. UTF-8 TXT and Markdown are also accepted. Scanned/mixed PDFs require OCR_ENDPOINT or a searchable replacement; no synthetic extracted text is inserted. OCR gateway contract: multipart field file, optional Bearer OCR_API_KEY, response JSON containing actual text under text. Upload limit: 15 MB; pitch/document-text limit: 40,000 characters.
-
-## Workflow and evidence
-
-DRAFT → EXTRACTED → PROVISIONALLY_SCORED → CLARIFICATION → FINAL_SCORED → READY_FOR_ASSESSOR → SUBMITTED
-
-Successful extraction persists a provisional score immediately. Extraction failures after draft creation retain a draft, visible after Refresh progress, with a retry action. Clarification asks one Qwen-generated question at a time. Each answer preserves original/translated sources, re-extracts, validates, and recalculates. Previous answers can be edited; manual corrections generate a contextual clarification question.
-
-Finalization is blocked while a question is pending, or while unattempted missing fields remain below the configured question limit. Unknown answers remain unknown. At the limit, incomplete assessments may finalize with all remaining unknowns explicitly listed. A low coverage score does not prevent human review after the required workflow completes.
-
-Every provided field has an exact excerpt, an evidence quote, a source id and a validation result. Unsupported values, numeric mismatches, unavailable units/currencies, estimated financial claims, missing-source references, and contradictory extracted claims require clarification. Multiple contradictory amounts are flagged independently of the model's status. Exact-excerpt validation deliberately rejects unsupported paraphrases, so it may ask for more clarification than a permissive extractor.
-
-The server checks evidence grounding, not external truth. Semantic field classification, translation meaning and completeness of contradictory-claim discovery still require real-model evaluation and human review. Nothing guarantees zero hallucinations.
-
-The transparent 8-domain rubric measures **validated evidence coverage**, separately from confidence and feasibility. It is not an empirically calibrated business success probability. Financial contribution is calculated only with explicit comparable amount, currency, unit and quantity basis, using decimal subtraction. It is labelled unit contribution before fixed expenses, never net profit. Incomplete financial data produces no definitive profitability conclusion.
-
-Assessor submission requires final report generation and explicit beneficiary confirmation. Assignment comes from the backend account configuration. Only the beneficiary owner and the configured assigned assessor (after submission) can read the case. SQLite and optimistic revision checks preserve progress and reject overlapping stale writes. Final confirmed cases lock beneficiary edits. Human assessor decisions, justified domain overrides, and translated feedback persist on the same case.
-
-## APIs
-
-| Method | Path | Behavior |
-| --- | --- | --- |
-| GET | /api/health | Non-sensitive service/configuration health |
-| GET | /api/session | Validates token and returns server-owned identity/role |
-| GET | /api/submissions | Owner's records or assigned assessor's submitted queue |
-| GET | /api/submissions/{id} | Authorized full record |
-| POST | /api/pipeline/process-text | JSON pitch, source-language override, optional interaction_language, title, input_type |
-| POST | /api/pipeline/process-document | Multipart file; returns text for review |
-| POST | /api/pipeline/process-voice | Multipart file + optional language; returns transcript for review |
-| POST | /api/translation/translate | Authenticated translation: text, source, target |
-| POST | /api/submissions/{id}/extract | Retry a saved draft/extracted record |
-| POST | /api/clarification/{id}/next-question | Contextual question, one pending at a time |
-| POST | /api/clarification/{id}/answer | question_id, answer, language, dont_know; supports editing |
-| POST | /api/submissions/{id}/correction-question | Contextual fact correction: field |
-| POST | /api/submissions/{id}/language | Translates actual question/report content: language |
-| POST | /api/submissions/{id}/finalize | Enforces clarification policy, calculates final score, generates report |
-| POST | /api/submissions/{id}/confirm | Records beneficiary confirmation |
-| POST | /api/submissions/{id}/submit-to-assessor | Validates state and configured assessor; persists timestamp |
-| POST | /api/submissions/{id}/review | Assigned assessor decision, feedback, overrides and justification |
-
-All routes except health require Authorization: Bearer <private account token>. Validation, permission, workflow conflicts and service failures return explicit HTTP errors. Provider errors never become business facts. Source content is untrusted prompt data.
+API documentation: [application API](http://127.0.0.1:8000/docs) · [processing API](http://127.0.0.1:8001/docs). Keep model services on loopback unless a separate secured deployment is configured. Keep secrets in the backend environment, never in frontend variables or Git.
 
 ## Verification
 
@@ -159,36 +133,25 @@ pnpm lint
 pnpm build
 ```
 
-The backend/API tests use explicit model doubles; these are confined to tests, not runtime fallback logic. They cover vague/detailed English, Hindi, Marathi, mixed language, missing facts, conflicting financial claims, malicious/unsupported evidence, numeric corruption, answer edits, final-report localization, persistence, owner/assessor isolation, guarded handoff, human review, provider request contracts, and unavailable services.
-
-Live model tests are skipped by default. After configuring actual Qwen and IndicTrans2 services:
+Backend tests use explicit model doubles where appropriate. Real model smoke checks require running services:
 
 ```powershell
-$env:RUN_LIVE_AI_TESTS="1"
-python -m pytest backend/tests -k live -v
+python scripts/verify_regional_text.py
+python scripts/verify_accessible_journey.py
 ```
 
-No live English/Hindi/Marathi inference, voice transcription, OCR, or model-generated report accuracy is claimed as verified without the relevant service.
+These scripts use temporary synthetic records rather than live beneficiary data. The typed-pitch smoke check covers all seven regional languages, preserved originals, English translations and supported extracted facts. It is not a complete human evaluation of translation quality. Clearly labelled synthetic demo records contain predefined example scores, not live assessments.
 
-## Changed surfaces and remaining deployment work
+## Further documentation
 
-Core changes: backend/main.py; backend/services/{qwen_service,indictrans_service,screening,pdf_service,whisper_service}.py; backend/provision_account.py; backend/tests/test_workflow.py; src/App.tsx; src/components/{AccountLogin,ScreeningWorkspace,IdeaSubmissionModal,SplitScreenMentor,AssessorPortal,AssessorReviewForm,BeneficiaryDashboard,ImprovementWorkspace}.tsx; src/services/{screeningApi,aiMentorEngine,scoringEngine,indicTransService,audioService,allocationEngine}.ts; portal login wrappers; landing/report text; Vite configuration; dependencies; tests and environment documentation.
+- [Regional typed-pitch demo](docs/REGIONAL_TEXT_DEMO.md)
+- [Beneficiary journey and accessibility](docs/BENEFICIARY_JOURNEY.md)
+- [Training, mentoring and investment review](docs/INVESTMENT_READINESS.md)
+- [Local IndicTrans2 setup and access requirements](docs/LOCAL_INDICTRANS.md)
+- [Backend services and model setup](docs/BACKEND_SERVICES.md)
+- [Frontend/backend API contract](docs/FRONTEND_BACKEND_CONTRACT.md)
+- [Synthetic demo accounts](docs/SYNTHETIC_DEMO_ACCOUNTS.md)
+- [Dataset behavior and extraction requirements](docs/DATASET_BEHAVIOR.md)
+- [Homepage visual references](docs/HOMEPAGE_DESIGN.md)
 
-The previous OTP screen generated codes in the browser and the assessor screen accepted any nonempty password. These were replaced with real backend account-token authentication. There is no SMS registration provider configured; registration now requires operator provisioning instead of pretending SMS verification occurred.
-
-The previous fixed-question improvement guide and version-triggered 6.4/7.8 scores were replaced by the connected screening workspace within the same routes. Human review is retained with persisted feedback and optional justified overrides.
-
-The old Directorate analytics remain an explicitly labelled **local demonstration** screen. They are not connected to private screening records. Backend admin analytics, institution identity/SSO, SMS enrolment, automatic trade/workload allocation, production rate limiting, encrypted backups, deployment and operational monitoring are not implemented by this change. Account provisioning and fixed operator assignment provide the scoped authenticated screening workflow; they do not constitute a complete production identity platform.
-
-### Results from this implementation run
-
-- Backend unit/API tests: 23 passed, 3 live inference tests skipped.
-- Frontend API tests: 5 passed.
-- TypeScript check and Vite production build: passed. Vite reports a non-blocking large-bundle warning from the retained application/chart dependencies.
-- Running frontend, backend health and /api proxy: HTTP 200.
-- Browser check: beneficiary login renders; invalid account token returns the backend error without logging in.
-- Local Qwen endpoint at port 11434: unreachable.
-- IndicTrans2 endpoint and screening accounts: not configured.
-- Live speech recognition, OCR, and model accuracy: not verified.
-
-The API is running with reload enabled. Existing browser-only demo profiles are not imported as genuine evidence-backed submissions; new screening records are stored by the backend.
+Earlier handoff and status documents may describe previous iterations. This README describes the current role URLs, presentation login and active local translation provider.
