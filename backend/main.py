@@ -42,6 +42,7 @@ def connection():
         conn.close()
 
 def account(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    # Keep existing operator-provisioned tokens valid during migration.
     accounts = json.loads(os.getenv("SCREENING_ACCOUNTS", "{}"))
     for token, user in accounts.items():
         if secrets.compare_digest(credentials.credentials, token):
@@ -53,7 +54,36 @@ def account(credentials: HTTPAuthorizationCredentials = Depends(security)):
         user = managed(credentials.credentials)
         if user:
             return user
-    raise HTTPException(401, "Invalid access token. Configure an account with the service operator.")
+    # Firebase accounts are verified against Firebase Auth and their server-owned
+    # role/active flag in Firestore. Client-supplied role values are never trusted.
+    try:
+        from services.firebase_auth import (
+            FirebaseAuthError,
+            FirebaseNotConfigured,
+            authenticate_firebase_token,
+        )
+        return authenticate_firebase_token(credentials.credentials)
+    except FirebaseNotConfigured:
+        pass
+    except FirebaseAuthError as exc:
+        raise HTTPException(exc.status_code, str(exc)) from exc
+    raise HTTPException(401, "Invalid access token. Configure Firebase Admin credentials or a legacy operator token.")
+
+
+class BeneficiaryRegistration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    display_name: str = Field(min_length=2, max_length=120)
+    preferred_language: Literal["en", "hi", "mr", "te", "ta", "kn", "bn"] = "en"
+
+
+@app.post("/api/auth/register")
+def register_beneficiary(req: BeneficiaryRegistration, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Provision only a beneficiary role; staff roles must be assigned by an administrator."""
+    try:
+        from services.firebase_auth import FirebaseAuthError, register_beneficiary_account
+        return register_beneficiary_account(credentials.credentials, req.display_name, req.preferred_language)
+    except FirebaseAuthError as exc:
+        raise HTTPException(exc.status_code, str(exc)) from exc
 
 def get_record(sid, user, write=False):
     with connection() as db:

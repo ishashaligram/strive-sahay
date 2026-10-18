@@ -1,3 +1,4 @@
+import { auth } from './firebase';
 export interface Source { metadata?:{period?:string;costBasis?:'fixed'|'total'|'variable'}; id: string; original: string; english: string; language: string; detectedLanguage: string; translationUncertain: boolean }
 export interface Fact { displayValues?:Record<string,string>; confirmed?: boolean; isEstimate?: boolean; field: string; value: string | null; status: string; claims: {value: string; evidence: string; source_id: string;period?:string;costBasis?:'fixed'|'total'|'variable'; amount: number | null; currency: string | null; unit: string | null}[]; validation: {valid: boolean; errors: string[]} }
 export interface Question { id: string; field: string; text: string; rationale: string; guidance: string; localizedGuidance?: Record<string,string>; localizedRationale?: Record<string,string>; status: string; answer?: string; translations: Record<string,string> }
@@ -25,7 +26,8 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 600000);
   try {
-    const token = sessionStorage.getItem('screening_access_token') || '';
+    const token = auth.currentUser ? await auth.currentUser.getIdToken() : (sessionStorage.getItem('screening_access_token') || '');
+    if (token) sessionStorage.setItem('screening_access_token', token);
     const response = await fetch(apiUrl(path), {method: body === undefined ? 'GET' : 'POST', headers: {Authorization: 'Bearer ' + token, ...(body instanceof FormData ? {} : {'Content-Type': 'application/json'})}, body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body), signal: controller.signal});
     const data = await response.json().catch(() => {throw new Error('Backend returned an unreadable response');});
     if (!response.ok) {
@@ -41,7 +43,8 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
 }
 
 export async function downloadOriginal(id:string){
- const response=await fetch(apiUrl('/media/'+encodeURIComponent(id)),{headers:{Authorization:'Bearer '+(sessionStorage.getItem('screening_access_token')||'')}});
+ const token = auth.currentUser ? await auth.currentUser.getIdToken() : (sessionStorage.getItem('screening_access_token') || '');
+ const response=await fetch(apiUrl('/media/'+encodeURIComponent(id)),{headers:{Authorization:'Bearer '+token}});
  if(!response.ok)throw new Error('Original upload is unavailable or access was denied');
  const blob=await response.blob();const url=URL.createObjectURL(blob);
  const a=document.createElement('a');a.href=url;a.download='original-upload';a.click();URL.revokeObjectURL(url);
