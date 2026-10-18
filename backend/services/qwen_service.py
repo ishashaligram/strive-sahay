@@ -8,6 +8,22 @@ STRICT_PROMPT = "You are a business fact extraction engine. Extract only informa
 class QwenService:
     @staticmethod
     async def generate(system, data, schema):
+        try:
+            return await QwenService._generate(system,data,schema)
+        except httpx.ConnectError as exc:
+            raise RuntimeError('Qwen AI service is not reachable. Start the Qwen server or set QWEN_ENDPOINT in backend/.env to a reachable model API URL, then restart the backend. Your uploaded text has not been replaced with sample answers.') from exc
+        except httpx.TimeoutException as exc:
+            raise RuntimeError('Qwen AI processing timed out. Check that the model is loaded and the model server has enough memory, then retry.') from exc
+        except httpx.HTTPStatusError as exc:
+            code=exc.response.status_code
+            if code in (401,403):raise RuntimeError('The Qwen API rejected authentication. Check QWEN_API_KEY in the backend environment.') from exc
+            if code==404:raise RuntimeError('Qwen model or API route was not found. Check QWEN_ENDPOINT, QWEN_PROVIDER, and QWEN_MODEL in the backend environment.') from exc
+            raise RuntimeError('Qwen AI service returned HTTP '+str(code)+'. Check the model server and retry.') from exc
+        except (json.JSONDecodeError,KeyError,IndexError) as exc:
+            raise RuntimeError('Qwen returned an invalid structured response. Check the model and JSON-schema support, then retry.') from exc
+
+    @staticmethod
+    async def _generate(system, data, schema):
         endpoint = os.getenv("QWEN_ENDPOINT", "http://127.0.0.1:11434").rstrip("/")
         messages = [{"role": "system", "content": system}, {"role": "user", "content": json.dumps(data, ensure_ascii=False)}]
         headers = {"Authorization": "Bearer " + os.environ["QWEN_API_KEY"]} if os.getenv("QWEN_API_KEY") else {}
