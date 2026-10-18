@@ -145,6 +145,9 @@ def install_program(app, runtime):
     def audit(action,user,details):
         eid=secrets.token_hex(12)
         put("audit",eid,{"id":eid,"action":action,"actor":user["id"],"at":now(),"details":details})
+    runtime["program_entities"]=all_entities
+    runtime["put_program_entity"]=put
+    runtime["program_audit"]=audit
     def records():
         with connection() as db:
             return [json.loads(r[0]) for r in db.execute("SELECT body FROM submissions ORDER BY rowid DESC")]

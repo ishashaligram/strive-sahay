@@ -544,3 +544,6 @@ install_program(app, globals())
 install_phone_auth(app, globals())
 from services.beneficiary_experience import install_beneficiary_experience
 install_beneficiary_experience(app,globals())
+
+from services.investment_review import install_investment_review
+install_investment_review(app,globals())

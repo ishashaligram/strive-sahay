@@ -1,3 +1,4 @@
+import {ReviewerProgressForm} from './InvestmentReadinessPanel';
 import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {SupportedLanguage} from '../types';
 import {ui,knownText,workflowLabel} from '../services/uiI18n';
@@ -89,7 +90,7 @@ export function ScreeningWorkspace({role,language,onLanguageChange}: {role:'bene
       {record.synthetic&&<p role="status" className="bg-amber-50 border border-amber-300 text-amber-950 p-4 rounded-xl">SYNTHETIC DEMO · {record.syntheticBeneficiary} · Fictional pitch and predefined example score. This is not a live Qwen assessment.</p>}
       <div className="bg-white border rounded-2xl p-6 space-y-4">
         <div className="flex justify-between flex-wrap gap-3"><h2 className="text-xl font-bold">{record.title}</h2><span className="text-teal-700 font-semibold">{workflowLabel(record.state,role==='assessor'?'en':language)}</span></div>
-        <AssessmentScoreCard record={record} language={viewLanguage}/>
+        <AssessmentScoreCard record={record} language={viewLanguage}/>{role==='assessor'&&<ReviewerProgressForm key={record.id} caseId={record.id}/>}
         {record.category&&<p className="text-sm bg-teal-50 text-teal-900 rounded-xl p-3"><strong>{t('field_trade')}: </strong>{record.category.status==='DETECTED'?t(record.category.name||'',{defaultValue:record.category.name||''}):t('automaticCategoryNotice')}</p>}
         {role==='beneficiary' && <label>{t('language')}<select disabled={!!busy} className="border rounded-xl p-2 ml-3" value={language} onChange={e=>onLanguageChange?onLanguageChange(e.target.value as SupportedLanguage):void safeAction('/submissions/'+record.id+'/language',{language:e.target.value})}>{Object.entries({en:'English',hi:'हिन्दी',mr:'मराठी',ta:'தமிழ்',te:'తెలుగు',kn:'ಕನ್ನಡ',bn:'বাংলা',or:'ଓଡ଼ିଆ'}).map(([code,label])=><option key={code} value={code}>{label}</option>)}</select></label>}
         {record.mediaIds?.map(id=><button key={id} className="text-teal-700 underline" onClick={()=>void run('Downloading original upload…',()=>downloadOriginal(id))}>{t("Download preserved original document / recording")}</button>)}
